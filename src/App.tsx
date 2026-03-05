@@ -5,8 +5,8 @@ import { useActiveFile } from './hooks/useActiveFile';
 import { useFileWatcher } from './hooks/useFileWatcher';
 import { storeGet, storeSet } from './lib/store';
 import { readFile } from './lib/fs';
-import type { EditorMode } from './components/layout/Toolbar';
-import type { Theme } from './components/layout/Toolbar';
+import type { EditorMode, Theme } from './components/layout/Toolbar';
+import { THEME_NEXT } from './components/layout/Toolbar';
 
 function App() {
   const [pinnedDirs, setPinnedDirs] = useState<string[]>([]);
@@ -83,7 +83,7 @@ function App() {
   };
 
   const handleThemeToggle = async () => {
-    const next: Theme = theme === 'dark' ? 'light' : 'dark';
+    const next: Theme = THEME_NEXT[theme];
     setTheme(next);
     await storeSet('theme', next);
   };

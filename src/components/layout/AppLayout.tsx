@@ -51,18 +51,20 @@ export function AppLayout({
         {mode === 'split' ? (
           <SplitPane
             left={<SourceEditor content={content} onChange={onContentChange} />}
-            right={<PreviewPane content={content} filePath={activeFile} />}
+            right={<PreviewPane content={content} filePath={activeFile} theme={theme} />}
           />
         ) : mode === 'source' ? (
           <SourceEditor content={content} onChange={onContentChange} />
         ) : (
-          <PreviewPane content={content} filePath={activeFile} />
+          <PreviewPane content={content} filePath={activeFile} theme={theme} />
         )}
       </div>
 
       {/* WYSIWYG — always mounted, shown only in wysiwyg mode (future: add wysiwyg to EditorMode) */}
       <div style={{ display: 'none' }}>
-        <WysiwygEditor ref={wysiwygRef} content={content} onChange={onContentChange} />
+        <ErrorBoundary fallback={null}>
+          <WysiwygEditor ref={wysiwygRef} content={content} onChange={onContentChange} />
+        </ErrorBoundary>
       </div>
     </>
   ) : (

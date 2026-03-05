@@ -1,10 +1,10 @@
 import { useEffect } from 'react';
-import { Code2, Columns2, Eye, Sun, Moon, Save } from 'lucide-react';
+import { Code2, Columns2, Eye, Moon, Cherry, Leaf, Save } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { SaveState } from '../../hooks/useActiveFile';
 
 export type EditorMode = 'source' | 'split' | 'preview';
-export type Theme = 'dark' | 'light';
+export type Theme = 'dark' | 'light' | 'mint';
 
 interface ToolbarProps {
   mode: EditorMode;
@@ -33,8 +33,12 @@ const SAVE_STATE_COLOR: Record<SaveState, string> = {
   error: 'var(--accent-error)',
 };
 
+const THEME_CYCLE: Theme[] = ['dark', 'mint', 'light'];
+const THEME_NEXT: Record<Theme, Theme> = { dark: 'mint', mint: 'light', light: 'dark' };
+const THEME_ICON: Record<Theme, typeof Moon> = { dark: Moon, mint: Leaf, light: Cherry };
+const THEME_LABEL: Record<Theme, string> = { dark: '切换薄荷', mint: '切换草莓', light: '切换深色' };
+
 export function Toolbar({ mode, onModeChange, theme, onThemeToggle, saveState, isDirty, onSave, fileName }: ToolbarProps) {
-  // Keyboard shortcuts
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.ctrlKey && e.key === 's') { e.preventDefault(); onSave(); }
@@ -46,6 +50,8 @@ export function Toolbar({ mode, onModeChange, theme, onThemeToggle, saveState, i
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
   }, [mode, onModeChange, onSave]);
+
+  const ThemeIcon = THEME_ICON[theme];
 
   const modes: { id: EditorMode; icon: typeof Code2; label: string }[] = [
     { id: 'source', icon: Code2, label: 'Source' },
@@ -69,7 +75,7 @@ export function Toolbar({ mode, onModeChange, theme, onThemeToggle, saveState, i
       </div>
 
       {/* Center: mode toggle */}
-      <div className="flex items-center gap-0.5 bg-[var(--bg-overlay)] rounded p-0.5">
+      <div className="flex items-center gap-0.5 rounded p-0.5" style={{ backgroundColor: 'var(--bg-overlay)' }}>
         {modes.map(({ id, icon: Icon, label }) => (
           <button
             key={id}
@@ -79,9 +85,10 @@ export function Toolbar({ mode, onModeChange, theme, onThemeToggle, saveState, i
             className={cn(
               'flex items-center gap-1 px-2 py-1 rounded text-xs transition-colors',
               mode === id
-                ? 'bg-[var(--bg-surface)] text-[var(--text-primary)]'
+                ? 'text-[var(--text-primary)]'
                 : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'
             )}
+            style={mode === id ? { backgroundColor: 'var(--bg-surface)' } : {}}
           >
             <Icon size={13} />
             <span>{label}</span>
@@ -89,7 +96,7 @@ export function Toolbar({ mode, onModeChange, theme, onThemeToggle, saveState, i
         ))}
       </div>
 
-      {/* Right: save state + theme toggle */}
+      {/* Right: save state + theme cycle */}
       <div className="flex items-center gap-2">
         {saveState !== 'clean' && (
           <span className="text-xs" style={{ color: SAVE_STATE_COLOR[saveState] }}>
@@ -99,20 +106,23 @@ export function Toolbar({ mode, onModeChange, theme, onThemeToggle, saveState, i
         <button
           onClick={onSave}
           title="Save (Ctrl+S)"
-          className="p-1 rounded hover:bg-[var(--bg-overlay)]"
+          className="p-1 rounded"
           style={{ color: 'var(--text-muted)' }}
         >
           <Save size={14} />
         </button>
         <button
           onClick={onThemeToggle}
-          title="Toggle theme"
-          className="p-1 rounded hover:bg-[var(--bg-overlay)]"
-          style={{ color: 'var(--text-muted)' }}
+          title={THEME_LABEL[theme]}
+          className="flex items-center gap-1 px-2 py-1 rounded text-xs"
+          style={{ color: 'var(--accent-primary)', backgroundColor: 'var(--bg-overlay)' }}
         >
-          {theme === 'dark' ? <Sun size={14} /> : <Moon size={14} />}
+          <ThemeIcon size={13} />
+          <span>{theme === 'dark' ? '夜' : theme === 'mint' ? '薄荷' : '草莓'}</span>
         </button>
       </div>
     </div>
   );
 }
+
+export { THEME_CYCLE, THEME_NEXT };

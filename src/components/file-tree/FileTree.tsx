@@ -195,6 +195,13 @@ export function FileTree({ pinnedDirs, onPinDir, onUnpinDir, onSelectFile }: Fil
             {(props) => (
               <div
                 data-id={props.node.data.path}
+                onClick={() => {
+                  // Always open .md files on click, even if already selected
+                  // (react-arborist doesn't re-fire onSelect for already-selected nodes)
+                  if (!props.node.data.isDirectory && props.node.data.name.endsWith('.md') && props.node.isSelected) {
+                    onSelectFile(props.node.data.path);
+                  }
+                }}
                 onContextMenu={e => {
                   if (pinnedDirs.includes(props.node.data.path)) {
                     e.preventDefault();
