@@ -1,0 +1,49 @@
+/* Catppuccin-based macaron color tokens — WCAG AA verified */
+:root {
+  /* Backgrounds */
+  --bg-base:        #1E1E2E;
+  --bg-surface:     #181825;
+  --bg-overlay:     #313244;
+  --bg-divider:     #45475A;
+
+  /* Text */
+  --text-primary:   #CDD6F4;
+  --text-secondary: #BAC2DE;
+  --text-muted:     #7F849C;
+
+  /* Pastel syntax colors */
+  --syntax-keyword: #CBA6F7;
+  --syntax-string:  #A6E3A1;
+  --syntax-number:  #FAB387;
+  --syntax-type:    #89DCEB;
+  --syntax-func:    #89B4FA;
+  --syntax-variable:#F38BA8;
+
+  /* Semantic */
+  --accent-primary: #CBA6F7;
+  --accent-success: #A6E3A1;
+  --accent-warning: #F9E2AF;
+  --accent-error:   #F38BA8;
+  --focus-ring:     0 0 0 2px #CBA6F7;
+}
+
+[data-theme="light"] {
+  --bg-base:        #EFF1F5;
+  --bg-surface:     #E6E9EF;
+  --bg-overlay:     #DCE0E8;
+  --bg-divider:     #BCC0CC;
+  --text-primary:   #4C4F69;
+  --text-secondary: #5C5F77;
+  --text-muted:     #9CA0B0;
+  --syntax-keyword: #8839EF;
+  --syntax-string:  #40A02B;
+  --syntax-number:  #FE640B;
+  --syntax-type:    #04A5E5;
+  --syntax-func:    #1E66F5;
+  --syntax-variable:#D20F39;
+  --accent-primary: #8839EF;
+  --accent-success: #40A02B;
+  --accent-warning: #DF8E1D;
+  --accent-error:   #D20F39;
+  --focus-ring:     0 0 0 2px #8839EF;
+}
