@@ -13,6 +13,7 @@ A desktop Markdown editor based on Tauri + React + TypeScript.
 - Sidebar supports both:
   - Folder explorer (for openable files in pinned directories).
   - File panel (imported files list, independent from folder tree).
+  - Explorer panel can be hidden/shown from the top toolbar.
 - Pinned directory safety:
   - Directories with no openable files are skipped when pinning.
   - Stored pinned directories are re-validated on startup and invalid ones are removed.
@@ -21,7 +22,7 @@ A desktop Markdown editor based on Tauri + React + TypeScript.
   - Collapse/expand panel (default expanded).
   - Star files and pin starred files to top.
   - Right-click file: open / star / remove / copy path / open containing folder.
-  - Right-click pinned directory: copy path / open directory / refresh / unpin.
+  - Right-click any directory node: copy path / open directory / refresh (plus unpin when the directory is pinned).
   - Right-click Files header: clear unstarred files.
 - AI-skill oriented file support:
   - Editable whitelist includes common markdown/code/config/script files such as:
@@ -34,6 +35,13 @@ A desktop Markdown editor based on Tauri + React + TypeScript.
   - Language is selected by file extension (e.g. `.py`, `.ts`, `.tsx`, `.js`, `.json`, `.yaml`, `.sh`, `.ps1`).
   - Includes default fallback highlighting so non-markdown code files keep visible syntax colors.
   - Unknown file types fall back to plain text highlighting.
+- Mode behavior for non-markdown files:
+  - Editable text files are locked to Source mode.
+  - Read-only text files are locked to Preview mode.
+  - Markdown files keep full Source/Preview flow and optional split behavior.
+- Text preview highlighting:
+  - Preview mode for supported text files uses extension-based syntax highlighting when possible.
+  - Falls back to plain text rendering if highlighting is unavailable.
 - Supports opening markdown file directly via OS file association (after installer install).
 - Launcher scripts:
   - `MarkdownViewer.bat`
@@ -65,3 +73,4 @@ npm run tauri dev
 - App window title: `MarkdownEditor`.
 - Product name in packaging metadata: `MarkdownEditor`.
 - If startup or preview content seems stale after rapid file switching/importing, request sequencing and stale watcher callback guards are included to prevent old file reads from overriding current content.
+- On startup restore, the last opened file is re-added to the imported file list and scrolled into active view.

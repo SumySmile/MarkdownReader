@@ -34,12 +34,14 @@ interface AppLayoutProps {
   sourceSplitEnabled: boolean;
   theme: Theme;
   syncScroll: boolean;
+  sidebarVisible: boolean;
   onSelectFile: (path: string) => Promise<void> | void;
   onContentChange: (text: string) => void;
   onModeChange: (mode: EditorMode) => void;
   onToggleSourceSplit: () => void;
   onThemeToggle: () => void;
   onToggleSyncScroll: () => void;
+  onToggleSidebar: () => void;
   onSave: () => void;
 }
 
@@ -85,12 +87,14 @@ export function AppLayout({
   sourceSplitEnabled,
   theme,
   syncScroll,
+  sidebarVisible,
   onSelectFile,
   onContentChange,
   onModeChange,
   onToggleSourceSplit,
   onThemeToggle,
   onToggleSyncScroll,
+  onToggleSidebar,
   onSave,
 }: AppLayoutProps) {
   const previewKind: FileKind = activeFileKind ?? 'markdown';
@@ -117,37 +121,40 @@ export function AppLayout({
 
   return (
     <div className="flex h-full" style={{ backgroundColor: 'var(--bg-base)' }}>
-      <div className="w-64 flex-shrink-0 border-r" style={{ borderColor: 'var(--bg-divider)' }}>
-        <ErrorBoundary fallback={
-          <div className="p-4 text-sm" style={{ color: 'var(--accent-error)' }}>Sidebar error</div>
-        }>
-          <FileTree
-            pinnedDirs={pinnedDirs}
-            pinnedFiles={pinnedFiles}
-            starredFiles={starredFiles}
-            filesPanelOpen={filesPanelOpen}
-            onPinDir={onPinDir}
-            onUnpinDir={onUnpinDir}
-            onAddFiles={onAddFiles}
-            onToggleFileStar={onToggleFileStar}
-            onToggleFilesPanel={onToggleFilesPanel}
-            onRemovePinnedFile={onRemovePinnedFile}
-            onRemoveOtherPinnedFiles={onRemoveOtherPinnedFiles}
-            onClearUnstarredFiles={onClearUnstarredFiles}
-            onCopyFullPath={onCopyFullPath}
-            onCopyDirectoryPath={onCopyDirectoryPath}
-            onOpenContainingFolder={onOpenContainingFolder}
-            onOpenDirectory={onOpenDirectory}
-            onSelectFile={onSelectFile}
-            activeFile={activeFile}
-          />
-        </ErrorBoundary>
-      </div>
+      {sidebarVisible && (
+        <div className="w-64 flex-shrink-0 border-r" style={{ borderColor: 'var(--bg-divider)' }}>
+          <ErrorBoundary fallback={
+            <div className="p-4 text-sm" style={{ color: 'var(--accent-error)' }}>Sidebar error</div>
+          }>
+            <FileTree
+              pinnedDirs={pinnedDirs}
+              pinnedFiles={pinnedFiles}
+              starredFiles={starredFiles}
+              filesPanelOpen={filesPanelOpen}
+              onPinDir={onPinDir}
+              onUnpinDir={onUnpinDir}
+              onAddFiles={onAddFiles}
+              onToggleFileStar={onToggleFileStar}
+              onToggleFilesPanel={onToggleFilesPanel}
+              onRemovePinnedFile={onRemovePinnedFile}
+              onRemoveOtherPinnedFiles={onRemoveOtherPinnedFiles}
+              onClearUnstarredFiles={onClearUnstarredFiles}
+              onCopyFullPath={onCopyFullPath}
+              onCopyDirectoryPath={onCopyDirectoryPath}
+              onOpenContainingFolder={onOpenContainingFolder}
+              onOpenDirectory={onOpenDirectory}
+              onSelectFile={onSelectFile}
+              activeFile={activeFile}
+            />
+          </ErrorBoundary>
+        </div>
+      )}
 
       <div className="flex flex-col flex-1 min-w-0">
         <Toolbar
           mode={mode}
           onModeChange={onModeChange}
+          activeFileKind={activeFileKind}
           isMarkdownFile={isMarkdownFile}
           sourceSplitEnabled={sourceSplitEnabled}
           onToggleSourceSplit={onToggleSourceSplit}
@@ -157,6 +164,8 @@ export function AppLayout({
           onThemeToggle={onThemeToggle}
           syncScroll={syncScroll}
           onToggleSyncScroll={onToggleSyncScroll}
+          sidebarVisible={sidebarVisible}
+          onToggleSidebar={onToggleSidebar}
           saveState={saveState}
           onSave={onSave}
           fileName={activeFile}

@@ -59,6 +59,7 @@ function App() {
   const [sourceSplitEnabled, setSourceSplitEnabled] = useState<boolean>(true);
   const [theme, setTheme] = useState<Theme>('gray');
   const [syncScroll, setSyncScroll] = useState<boolean>(true);
+  const [sidebarVisible, setSidebarVisible] = useState<boolean>(true);
   const [activeFileKind, setActiveFileKind] = useState<FileKind | null>(null);
   const [activeFileEditable, setActiveFileEditable] = useState<boolean>(true);
   const [readonlyReason, setReadonlyReason] = useState<string | null>(null);
@@ -86,7 +87,11 @@ function App() {
     setReadonlyReason(reason);
     setActiveFileEditable(!reason);
 
-    if (reason) {
+    if (kind === 'text') {
+      const forcedMode: EditorMode = reason ? 'preview' : 'source';
+      setMode(forcedMode);
+      storeSet('editorMode', forcedMode);
+    } else if (reason) {
       setMode('preview');
       storeSet('editorMode', 'preview');
     }
@@ -129,6 +134,9 @@ function App() {
       const savedSyncScroll = await storeGet<boolean>('syncScroll');
       if (typeof savedSyncScroll === 'boolean') setSyncScroll(savedSyncScroll);
 
+      const savedSidebarVisible = await storeGet<boolean>('sidebarVisible');
+      if (typeof savedSidebarVisible === 'boolean') setSidebarVisible(savedSidebarVisible);
+
       const args = await getLaunchArgs();
       const launchPath = args.map(normalizePath).find(isOpenablePath);
       if (launchPath) {
@@ -148,6 +156,11 @@ function App() {
       const lastFile = await storeGet<string>('lastOpenedFile');
       if (lastFile) {
         try {
+          setPinnedFiles(prev => {
+            const merged = mergeUniquePaths(prev, [normalizePath(lastFile)]);
+            storeSet('pinnedFiles', merged);
+            return merged;
+          });
           await openFileByPath(lastFile);
         } catch {
           // file no longer exists
@@ -235,6 +248,12 @@ function App() {
   };
 
   const handleModeChange = async (newMode: EditorMode) => {
+    if (activeFileKind === 'text') {
+      const forcedMode: EditorMode = activeFileEditable ? 'source' : 'preview';
+      setMode(forcedMode);
+      await storeSet('editorMode', forcedMode);
+      return;
+    }
     if (!activeFileEditable && newMode === 'source') {
       setMode('preview');
       await storeSet('editorMode', 'preview');
@@ -260,6 +279,12 @@ function App() {
     const next = !syncScroll;
     setSyncScroll(next);
     await storeSet('syncScroll', next);
+  };
+
+  const handleToggleSidebar = async () => {
+    const next = !sidebarVisible;
+    setSidebarVisible(next);
+    await storeSet('sidebarVisible', next);
   };
 
   const handleAddFiles = async () => {
@@ -396,12 +421,14 @@ function App() {
       sourceSplitEnabled={sourceSplitEnabled}
       theme={theme}
       syncScroll={syncScroll}
+      sidebarVisible={sidebarVisible}
       onSelectFile={openFileByPath}
       onContentChange={handleContentChange}
       onModeChange={handleModeChange}
       onToggleSourceSplit={handleToggleSourceSplit}
       onThemeToggle={handleThemeToggle}
       onToggleSyncScroll={handleToggleSyncScroll}
+      onToggleSidebar={handleToggleSidebar}
       onSave={handleSave}
     />
   );

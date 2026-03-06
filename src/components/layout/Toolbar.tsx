@@ -1,5 +1,5 @@
 ﻿import { useEffect } from 'react';
-import { Code2, Columns2, Eye, Moon, Cherry, Leaf, Save, Circle, Link2, Unlink2, Square } from 'lucide-react';
+import { Code2, Columns2, Eye, Moon, Cherry, Leaf, Save, Circle, Link2, Unlink2, Square, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { SaveState } from '../../hooks/useActiveFile';
 
@@ -9,6 +9,7 @@ export type Theme = 'dark' | 'light' | 'mint' | 'gray';
 interface ToolbarProps {
   mode: EditorMode;
   onModeChange: (mode: EditorMode) => void;
+  activeFileKind: 'markdown' | 'text' | 'unsupported' | null;
   isMarkdownFile: boolean;
   sourceSplitEnabled: boolean;
   onToggleSourceSplit: () => void;
@@ -21,6 +22,8 @@ interface ToolbarProps {
   saveState: SaveState;
   onSave: () => void;
   fileName: string | null;
+  sidebarVisible: boolean;
+  onToggleSidebar: () => void;
 }
 
 const SAVE_STATE_LABEL: Record<SaveState, string> = {
@@ -62,6 +65,7 @@ const THEME_TEXT: Record<Theme, string> = {
 export function Toolbar({
   mode,
   onModeChange,
+  activeFileKind,
   isMarkdownFile,
   sourceSplitEnabled,
   onToggleSourceSplit,
@@ -74,10 +78,13 @@ export function Toolbar({
   saveState,
   onSave,
   fileName,
+  sidebarVisible,
+  onToggleSidebar,
 }: ToolbarProps) {
   const sourceDisabled = !isEditable;
   const showSplitToggle = mode === 'source' && isMarkdownFile;
   const showSyncToggle = showSplitToggle && sourceSplitEnabled;
+  const previewDisabled = activeFileKind === 'text' && isEditable;
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -108,14 +115,14 @@ export function Toolbar({
       style={{ borderColor: 'var(--bg-divider)', backgroundColor: 'var(--bg-surface)' }}
     >
       <div className="min-w-0">
-        <span className="text-sm truncate" style={{ color: 'var(--text-secondary)' }}>
+        <span className="block max-w-full text-sm truncate" style={{ color: 'var(--text-secondary)' }}>
           {fileName ? fileName.split(/[\\/]/).pop() : 'No file open'}
         </span>
       </div>
 
       <div className="justify-self-center flex items-center gap-0.5 rounded p-0.5" style={{ backgroundColor: 'var(--bg-overlay)' }}>
         {modes.map(({ id, icon: Icon, label }) => {
-          const disabled = id === 'source' ? sourceDisabled : false;
+          const disabled = id === 'source' ? sourceDisabled : id === 'preview' ? previewDisabled : false;
           return (
             <button
               key={id}
@@ -140,6 +147,15 @@ export function Toolbar({
       </div>
 
       <div className="justify-self-end flex items-center gap-2">
+        <button
+          onClick={onToggleSidebar}
+          title={sidebarVisible ? 'Hide explorer' : 'Show explorer'}
+          aria-label={sidebarVisible ? 'Hide explorer' : 'Show explorer'}
+          className="p-1.5 rounded hover:bg-[var(--bg-overlay)]"
+          style={{ color: 'var(--text-secondary)' }}
+        >
+          {sidebarVisible ? <PanelLeftClose size={14} /> : <PanelLeftOpen size={14} />}
+        </button>
         {readonlyReason && (
           <span className="text-xs" style={{ color: 'var(--accent-warning)' }}>
             {readonlyReason}

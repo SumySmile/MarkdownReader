@@ -36,10 +36,45 @@ function resolveImageSrc(src: string | undefined, filePath: string | null): stri
   return convertFileSrc(resolveRelativePath(filePath, src));
 }
 
+function languageFromPath(filePath: string | null): string {
+  if (!filePath) return 'text';
+  const normalized = filePath.replace(/\\/g, '/').toLowerCase();
+  const name = normalized.split('/').pop() ?? normalized;
+  if (name.endsWith('.py')) return 'python';
+  if (name.endsWith('.ts') || name.endsWith('.tsx')) return 'typescript';
+  if (name.endsWith('.js') || name.endsWith('.jsx') || name.endsWith('.mjs') || name.endsWith('.cjs')) return 'javascript';
+  if (name.endsWith('.json') || name.endsWith('.jsonc')) return 'json';
+  if (name.endsWith('.yaml') || name.endsWith('.yml')) return 'yaml';
+  if (name.endsWith('.toml')) return 'toml';
+  if (name.endsWith('.sh') || name.endsWith('.bash') || name.endsWith('.zsh')) return 'bash';
+  if (name.endsWith('.ps1')) return 'powershell';
+  if (name.endsWith('.sql')) return 'sql';
+  if (name.endsWith('.xml')) return 'xml';
+  if (name.endsWith('.md') || name.endsWith('.markdown') || name.endsWith('.mdx')) return 'markdown';
+  return 'text';
+}
+
 export function PreviewPane({ content, filePath, fileKind = 'markdown', theme = 'dark' }: PreviewPaneProps) {
   const debounced = useDebouncedMarkdown(content, 150);
   const normalizedContent = useMemo(() => normalizePreviewContent(debounced), [debounced]);
   const shikiTheme: 'dark' | 'light' = theme === 'dark' ? 'dark' : 'light';
+  const [textPreviewHtml, setTextPreviewHtml] = useState('');
+  const textPreviewLanguage = useMemo(() => languageFromPath(filePath), [filePath]);
+
+  useEffect(() => {
+    if (fileKind !== 'text') return;
+    let cancelled = false;
+    highlight(content, textPreviewLanguage, shikiTheme)
+      .then(html => {
+        if (!cancelled) setTextPreviewHtml(html);
+      })
+      .catch(() => {
+        if (!cancelled) setTextPreviewHtml('');
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [fileKind, content, textPreviewLanguage, shikiTheme]);
 
   if (fileKind === 'text') {
     return (
@@ -47,12 +82,16 @@ export function PreviewPane({ content, filePath, fileKind = 'markdown', theme = 
         className="h-full overflow-auto app-scrollbar px-8 py-6"
         style={{ color: 'var(--text-primary)', backgroundColor: 'var(--bg-base)' }}
       >
-        <pre
-          className="whitespace-pre-wrap break-words text-sm leading-6"
-          style={{ fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Consolas, Liberation Mono, monospace' }}
-        >
-          {content}
-        </pre>
+        {textPreviewHtml ? (
+          <div dangerouslySetInnerHTML={{ __html: textPreviewHtml }} />
+        ) : (
+          <pre
+            className="whitespace-pre-wrap break-words text-sm leading-6"
+            style={{ fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Consolas, Liberation Mono, monospace' }}
+          >
+            {content}
+          </pre>
+        )}
       </div>
     );
   }

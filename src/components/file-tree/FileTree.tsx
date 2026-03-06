@@ -38,7 +38,7 @@ interface FileTreeProps {
 }
 
 type ContextMenuState =
-  | { x: number; y: number; kind: 'dir'; path: string }
+  | { x: number; y: number; kind: 'dir'; path: string; pinned: boolean }
   | { x: number; y: number; kind: 'file'; path: string; starred: boolean }
   | { x: number; y: number; kind: 'files-panel' }
   | null;
@@ -246,6 +246,15 @@ export function FileTree({
   }, [pinnedFiles, searchQuery, starredPathSet]);
 
   const normalizedActive = normalizePath(activeFile ?? '');
+  const activeRowRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!normalizedActive) return;
+    const id = window.setTimeout(() => {
+      activeRowRef.current?.scrollIntoView({ block: 'nearest' });
+    }, 0);
+    return () => window.clearTimeout(id);
+  }, [normalizedActive, filesPanelOpen, treeData]);
 
   const menuItemClass = 'w-full text-left px-3 py-1.5 text-xs text-[var(--text-secondary)] hover:bg-[var(--bg-divider)]';
   const menuDangerItemClass = `${menuItemClass} text-[var(--accent-error)]`;
@@ -311,6 +320,7 @@ export function FileTree({
                 return (
                   <div
                     key={path}
+                    ref={isActive ? activeRowRef : null}
                     className={cn(
                       'flex items-center gap-1 px-1.5 py-1 rounded text-sm cursor-pointer',
                       'hover:bg-[var(--bg-overlay)]',
@@ -358,16 +368,22 @@ export function FileTree({
           >
             {props => (
               <div
+                ref={!props.node.data.isDirectory && normalizePath(props.node.data.path) === normalizedActive ? activeRowRef : null}
                 data-id={props.node.data.path}
+                className={cn(
+                  !props.node.data.isDirectory && normalizePath(props.node.data.path) === normalizedActive && 'bg-[var(--bg-overlay)] rounded'
+                )}
                 onClick={() => {
                   if (!props.node.data.isDirectory && isOpenablePath(props.node.data.path)) {
                     openFile(props.node.data.path);
                   }
                 }}
                 onContextMenu={e => {
-                  if (pinnedDirs.includes(props.node.data.path)) {
+                  if (props.node.data.isDirectory) {
                     e.preventDefault();
-                    setContextMenu({ x: e.clientX, y: e.clientY, kind: 'dir', path: props.node.data.path });
+                    const normalized = normalizePath(props.node.data.path).toLowerCase();
+                    const pinned = pinnedDirs.some(dir => normalizePath(dir).toLowerCase() === normalized);
+                    setContextMenu({ x: e.clientX, y: e.clientY, kind: 'dir', path: props.node.data.path, pinned });
                   }
                 }}
               >
@@ -413,15 +429,17 @@ export function FileTree({
                 </span>
               </button>
               <div className="my-1 border-t border-[var(--bg-divider)]" />
-              <button
-                className={menuDangerItemClass}
-                onClick={() => {
-                  onUnpinDir(contextMenu.path);
-                  setContextMenu(null);
-                }}
-              >
-                Unpin Directory
-              </button>
+              {contextMenu.pinned && (
+                <button
+                  className={menuDangerItemClass}
+                  onClick={() => {
+                    onUnpinDir(contextMenu.path);
+                    setContextMenu(null);
+                  }}
+                >
+                  Unpin Directory
+                </button>
+              )}
             </>
           )}
 
