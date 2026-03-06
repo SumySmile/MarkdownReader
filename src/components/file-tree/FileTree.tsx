@@ -1,4 +1,4 @@
-﻿import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
+import { useEffect, useRef, useState, useCallback, useMemo, type ReactNode } from 'react';
 import { Tree, NodeApi, NodeRendererProps } from 'react-arborist';
 import { useFileTreeStore, TreeNode, DirectoryNode } from '../../stores/fileTreeStore';
 import { pickDirectory } from '../../lib/fs';
@@ -14,6 +14,7 @@ import {
   Star,
   Pencil,
   Files,
+  FileCode2,
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { isOpenablePath } from '../../lib/markdown';
@@ -58,7 +59,7 @@ function isMarkdownPath(path: string): boolean {
   return lower.endsWith('.md') || lower.endsWith('.markdown') || lower.endsWith('.mdx');
 }
 
-function EmptyState({ title, subtitle }: { title: string; subtitle?: string }) {
+function EmptyState({ title, subtitle }: { title: string; subtitle?: ReactNode }) {
   return (
     <div className="flex h-full min-h-16 flex-col items-center justify-center px-3 py-3 text-center">
       <p className="text-[var(--text-muted)] text-sm">{title}</p>
@@ -264,8 +265,6 @@ export function FileTree({
     return starredPathNoDriveSet.has(pathKeyNoDrive(path));
   }, [starredPathNoDriveSet, starredPathSet]);
 
-  const hasQuickFilter = filterMdOnly || filterStarOnly;
-
   const pathMatchesQuickFilters = useCallback((path: string) => {
     if (filterMdOnly && !isMarkdownPath(path)) return false;
     if (filterStarOnly && !isStarredPath(path)) return false;
@@ -273,7 +272,7 @@ export function FileTree({
   }, [filterMdOnly, filterStarOnly, isStarredPath]);
 
   const filterTreeByQuickFilters = useCallback((nodes: TreeNode[]): TreeNode[] => {
-    if (!hasQuickFilter) return nodes;
+    if (!filterMdOnly && !filterStarOnly) return nodes;
 
     const visit = (node: TreeNode): TreeNode | null => {
       if (!node.isDirectory) {
@@ -295,7 +294,7 @@ export function FileTree({
     return nodes
       .map(visit)
       .filter((node): node is TreeNode => node !== null);
-  }, [hasQuickFilter, pathMatchesQuickFilters]);
+  }, [filterMdOnly, filterStarOnly, pathMatchesQuickFilters]);
 
   const visibleTreeData = useMemo(() => {
     return filterTreeByQuickFilters(treeData);
@@ -349,6 +348,20 @@ export function FileTree({
         <span className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide">Explorer</span>
         <div className="flex items-center gap-1">
           <button
+            type="button"
+            onClick={() => setFilterMdOnly(v => !v)}
+            className={cn(
+              'p-1 rounded transition-colors',
+              filterMdOnly
+                ? 'text-[var(--accent-primary)] bg-[var(--bg-overlay)]'
+                : 'text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-overlay)]'
+            )}
+            title={filterMdOnly ? 'Markdown filter: on' : 'Markdown filter: off'}
+            aria-label={filterMdOnly ? 'Turn off markdown filter' : 'Turn on markdown filter'}
+          >
+            <FileCode2 size={14} />
+          </button>
+          <button
             onClick={onAddFiles}
             className="p-1 rounded text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-overlay)]"
             title="Import files"
@@ -364,6 +377,20 @@ export function FileTree({
           >
             <FolderPlus size={14} />
           </button>
+          <button
+            type="button"
+            onClick={() => setFilterStarOnly(v => !v)}
+            className={cn(
+              'p-1 rounded transition-colors',
+              filterStarOnly
+                ? 'text-[var(--accent-warning)] bg-[var(--bg-overlay)]'
+                : 'text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-overlay)]'
+            )}
+            title={filterStarOnly ? 'Star filter: on' : 'Star filter: off'}
+            aria-label={filterStarOnly ? 'Turn off star filter' : 'Turn on star filter'}
+          >
+            <Star size={14} className={filterStarOnly ? 'fill-current' : ''} />
+          </button>
         </div>
       </div>
 
@@ -375,51 +402,6 @@ export function FileTree({
           onChange={e => setSearchQuery(e.target.value)}
           className="w-full bg-[var(--bg-overlay)] text-[var(--text-primary)] text-xs px-2 py-1 rounded outline-none placeholder:text-[var(--text-muted)] focus:ring-1 focus:ring-[var(--accent-primary)]"
         />
-        <div className="mt-1 flex items-center gap-1">
-          <button
-            type="button"
-            onClick={() => setFilterMdOnly(v => !v)}
-            className={cn(
-              'px-2 py-0.5 rounded-full text-[11px] leading-4 border transition-colors',
-              filterMdOnly
-                ? 'bg-[var(--accent-primary)] text-[var(--bg-base)] border-[var(--accent-primary)]'
-                : 'bg-[var(--bg-overlay)] text-[var(--text-secondary)] border-[var(--bg-divider)] hover:bg-[var(--bg-divider)]'
-            )}
-            title="Only markdown"
-          >
-            MD
-          </button>
-          <button
-            type="button"
-            onClick={() => setFilterStarOnly(v => !v)}
-            className={cn(
-              'px-2 py-0.5 rounded-full text-[11px] leading-4 border transition-colors',
-              filterStarOnly
-                ? 'bg-[var(--accent-warning)] text-[var(--bg-base)] border-[var(--accent-warning)]'
-                : 'bg-[var(--bg-overlay)] text-[var(--text-secondary)] border-[var(--bg-divider)] hover:bg-[var(--bg-divider)]'
-            )}
-            title="Only starred"
-          >
-            Star
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setFilterMdOnly(false);
-              setFilterStarOnly(false);
-            }}
-            disabled={!hasQuickFilter}
-            className={cn(
-              'ml-auto px-2 py-0.5 rounded-full text-[11px] leading-4 border transition-colors',
-              hasQuickFilter
-                ? 'bg-[var(--bg-overlay)] text-[var(--text-secondary)] border-[var(--bg-divider)] hover:bg-[var(--bg-divider)]'
-                : 'bg-[var(--bg-overlay)] text-[var(--text-muted)] border-[var(--bg-divider)] opacity-60 cursor-not-allowed'
-            )}
-            title="Clear filters"
-          >
-            Clear
-          </button>
-        </div>
       </div>
 
       <div className="flex-1 overflow-hidden p-2">
@@ -445,7 +427,7 @@ export function FileTree({
                 {filteredFiles.length === 0 ? (
                   <EmptyState
                     title="No imported files."
-                    subtitle="Click +File to add"
+                    subtitle={<span className="inline-flex items-center gap-1">Click <FilePlus size={14} /> above</span>}
                   />
                 ) : (
                   filteredFiles.map(path => {
@@ -495,7 +477,10 @@ export function FileTree({
 
             <div ref={containerRef} className="flex-1 overflow-hidden app-scrollbar">
               {pinnedDirs.length === 0 ? (
-                <EmptyState title="No folders pinned." subtitle="Click +Dir to start" />
+                <EmptyState
+                  title="No folders pinned."
+                  subtitle={<span className="inline-flex items-center gap-1">Click <FolderPlus size={14} /> above</span>}
+                />
               ) : (
                 <Tree<TreeNode>
                   data={visibleTreeData}
@@ -691,3 +676,5 @@ export function FileTree({
     </div>
   );
 }
+
+

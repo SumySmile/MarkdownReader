@@ -1,4 +1,4 @@
-﻿import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { AppLayout } from './components/layout/AppLayout';
 import { useActiveFile } from './hooks/useActiveFile';
 import { useFileWatcher } from './hooks/useFileWatcher';
@@ -42,7 +42,7 @@ function byteLength(text: string): number {
 function getReadonlyReason(path: string, content: string): string | null {
   if (byteLength(content) > MAX_EDITABLE_BYTES) return 'Read-only: file too large (>1MB)';
   if (!isOpenablePath(path)) return 'Read-only: unsupported file type';
-  if (isReadonlyPreviewPath(path)) return 'Read-only: protected file type/path';
+  if (isReadonlyPreviewPath(path)) return 'Read-only: protected file';
   if (!isEditablePath(path)) return 'Read-only: non-editable file type';
   return null;
 }
@@ -492,3 +492,4 @@ function App() {
 }
 
 export default App;
+

@@ -22,7 +22,9 @@ A desktop Markdown editor based on Tauri + React + TypeScript.
   - Explorer uses grouped cards: `Files` and `Folders`.
   - `Files` panel supports collapse/expand (default expanded).
   - Empty state visuals are unified between `Files` and `Folders` cards.
-  - Quick filter chips below search: `MD`, `Star`, and `Clear`.
+  - Quick filters use icon toggles in the header:
+    - `MD` filter icon (left of Import Files) toggles markdown-only view.
+    - `Star` filter icon toggles starred-only view.
   - Star files and pin starred files to top.
   - Starring a file from the folder tree syncs to the Files panel.
   - Star icon is rendered as a solid star for clearer state.
