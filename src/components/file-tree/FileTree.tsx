@@ -16,8 +16,20 @@ interface FileTreeProps {
   onAddFiles: () => Promise<void> | void;
   onToggleFileStar: (path: string) => void;
   onToggleFilesPanel: () => void;
+  onRemovePinnedFile: (path: string) => Promise<void> | void;
+  onClearUnstarredFiles: () => Promise<void> | void;
   onSelectFile: (path: string) => Promise<void> | void;
   activeFile?: string | null;
+}
+
+type ContextMenuState =
+  | { x: number; y: number; kind: 'dir'; path: string }
+  | { x: number; y: number; kind: 'file'; path: string }
+  | { x: number; y: number; kind: 'files-panel' }
+  | null;
+
+function normalizePath(path: string): string {
+  return path.replace(/\\/g, '/');
 }
 
 function NodeRow({ node, style }: NodeRendererProps<TreeNode>) {
@@ -80,6 +92,8 @@ export function FileTree({
   onAddFiles,
   onToggleFileStar,
   onToggleFilesPanel,
+  onRemovePinnedFile,
+  onClearUnstarredFiles,
   onSelectFile,
   activeFile,
 }: FileTreeProps) {
@@ -87,7 +101,7 @@ export function FileTree({
   const [height, setHeight] = useState(400);
   const { getOrFetch } = useFileTreeStore();
   const [searchQuery, setSearchQuery] = useState('');
-  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; path: string } | null>(null);
+  const [contextMenu, setContextMenu] = useState<ContextMenuState>(null);
 
   const [treeData, setTreeData] = useState<TreeNode[]>([]);
 
@@ -133,11 +147,11 @@ export function FileTree({
 
   const handlePinDir = useCallback(async () => {
     const path = await pickDirectory();
-    if (path) onPinDir(path.replace(/\\/g, '/'));
+    if (path) onPinDir(normalizePath(path));
   }, [onPinDir]);
 
   const openMarkdownFile = useCallback((path: string) => {
-    Promise.resolve(onSelectFile(path)).catch(err => {
+    Promise.resolve(onSelectFile(normalizePath(path))).catch(err => {
       console.error('[FileTree] open file failed', path, err);
     });
   }, [onSelectFile]);
@@ -164,21 +178,24 @@ export function FileTree({
 
   const filteredFiles = useMemo(() => {
     const term = searchQuery.trim().toLowerCase();
-    const set = new Set(starredFiles);
+    const starSet = new Set(starredFiles.map(p => normalizePath(p).toLowerCase()));
 
     return pinnedFiles
+      .map(normalizePath)
       .filter(path => isMarkdownPath(path))
       .filter(path => {
         if (!term) return true;
-        return path.toLowerCase().includes(term) || path.split(/[\\/]/).pop()?.toLowerCase().includes(term);
+        return path.toLowerCase().includes(term) || (path.split(/[\\/]/).pop() ?? '').toLowerCase().includes(term);
       })
       .sort((a, b) => {
-        const aStar = set.has(a);
-        const bStar = set.has(b);
+        const aStar = starSet.has(a.toLowerCase());
+        const bStar = starSet.has(b.toLowerCase());
         if (aStar !== bStar) return aStar ? -1 : 1;
         return a.toLowerCase().localeCompare(b.toLowerCase());
       });
   }, [pinnedFiles, starredFiles, searchQuery]);
+
+  const normalizedActive = normalizePath(activeFile ?? '');
 
   return (
     <div className="flex flex-col h-full bg-[var(--bg-surface)]">
@@ -215,6 +232,10 @@ export function FileTree({
       <div className="border-b border-[var(--bg-divider)]">
         <button
           onClick={onToggleFilesPanel}
+          onContextMenu={(e) => {
+            e.preventDefault();
+            setContextMenu({ x: e.clientX, y: e.clientY, kind: 'files-panel' });
+          }}
           className="w-full flex items-center gap-1 px-2 py-1 text-xs uppercase tracking-wide text-[var(--text-muted)] hover:bg-[var(--bg-overlay)]"
           title={filesPanelOpen ? 'Collapse files' : 'Expand files'}
         >
@@ -230,8 +251,8 @@ export function FileTree({
             ) : (
               filteredFiles.map(path => {
                 const name = path.split(/[\\/]/).pop() ?? path;
-                const isStarred = starredFiles.includes(path);
-                const isActive = activeFile === path;
+                const isStarred = starredFiles.map(normalizePath).includes(path);
+                const isActive = normalizedActive === path;
                 return (
                   <div
                     key={path}
@@ -242,6 +263,10 @@ export function FileTree({
                     )}
                     title={path}
                     onClick={() => openMarkdownFile(path)}
+                    onContextMenu={(e) => {
+                      e.preventDefault();
+                      setContextMenu({ x: e.clientX, y: e.clientY, kind: 'file', path });
+                    }}
                   >
                     <File size={13} className="text-[var(--text-secondary)] flex-shrink-0" />
                     <span className="truncate text-[var(--text-secondary)]">{name}</span>
@@ -295,7 +320,7 @@ export function FileTree({
                 onContextMenu={e => {
                   if (pinnedDirs.includes(props.node.data.path)) {
                     e.preventDefault();
-                    setContextMenu({ x: e.clientX, y: e.clientY, path: props.node.data.path });
+                    setContextMenu({ x: e.clientX, y: e.clientY, kind: 'dir', path: props.node.data.path });
                   }
                 }}
               >
@@ -311,13 +336,39 @@ export function FileTree({
           className="fixed z-50 bg-[var(--bg-overlay)] border border-[var(--bg-divider)] rounded shadow-lg py-1 text-sm"
           style={{ left: contextMenu.x, top: contextMenu.y }}
         >
-          <button
-            className="w-full text-left px-3 py-1 hover:bg-[var(--bg-divider)]"
-            style={{ color: 'var(--accent-error)' }}
-            onClick={() => { onUnpinDir(contextMenu.path); setContextMenu(null); }}
-          >
-            Unpin Directory
-          </button>
+          {contextMenu.kind === 'dir' && (
+            <button
+              className="w-full text-left px-3 py-1 hover:bg-[var(--bg-divider)]"
+              style={{ color: 'var(--accent-error)' }}
+              onClick={() => { onUnpinDir(contextMenu.path); setContextMenu(null); }}
+            >
+              Unpin Directory
+            </button>
+          )}
+
+          {contextMenu.kind === 'file' && (
+            <button
+              className="w-full text-left px-3 py-1 hover:bg-[var(--bg-divider)]"
+              style={{ color: 'var(--accent-error)' }}
+              onClick={() => {
+                Promise.resolve(onRemovePinnedFile(contextMenu.path)).finally(() => setContextMenu(null));
+              }}
+            >
+              Remove File
+            </button>
+          )}
+
+          {contextMenu.kind === 'files-panel' && (
+            <button
+              className="w-full text-left px-3 py-1 hover:bg-[var(--bg-divider)]"
+              style={{ color: 'var(--accent-warning)' }}
+              onClick={() => {
+                Promise.resolve(onClearUnstarredFiles()).finally(() => setContextMenu(null));
+              }}
+            >
+              Clear Unstarred Files
+            </button>
+          )}
         </div>
       )}
     </div>

@@ -10,13 +10,16 @@ export function useActiveFile() {
   const [saveState, setSaveState] = useState<SaveState>('clean');
   const isSelfWritingRef = useRef(false);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const openSeqRef = useRef(0);
 
   const openFile = useCallback(async (path: string) => {
+    const seq = ++openSeqRef.current;
     if (saveTimerRef.current) {
       clearTimeout(saveTimerRef.current);
       saveTimerRef.current = null;
     }
     const text = await readFile(path);
+    if (seq !== openSeqRef.current) return;
     setFilePath(path);
     setContent(text);
     setSaveState('clean');

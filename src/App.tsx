@@ -13,6 +13,19 @@ function normalizePath(path: string): string {
   return path.replace(/\\/g, '/');
 }
 
+function mergeUniquePaths(existing: string[], incoming: string[]): string[] {
+  const map = new Map<string, string>();
+  for (const item of existing) {
+    const normalized = normalizePath(item);
+    map.set(normalized.toLowerCase(), normalized);
+  }
+  for (const item of incoming) {
+    const normalized = normalizePath(item);
+    map.set(normalized.toLowerCase(), normalized);
+  }
+  return Array.from(map.values());
+}
+
 function App() {
   const [pinnedDirs, setPinnedDirs] = useState<string[]>([]);
   const [pinnedFiles, setPinnedFiles] = useState<string[]>([]);
@@ -100,11 +113,11 @@ function App() {
           if (!paths.length) return;
           const normalized = paths.map(normalizePath);
           setPinnedFiles(prev => {
-            const merged = Array.from(new Set([...prev, ...normalized]));
+            const merged = mergeUniquePaths(prev, normalized);
             storeSet('pinnedFiles', merged);
             return merged;
           });
-          await openFile(normalized[0]);
+          await openFile(normalized[normalized.length - 1]);
         }).catch(console.error);
       }
       if (e.ctrlKey && e.key === 'f') {
@@ -151,10 +164,10 @@ function App() {
     const selected = await pickMarkdownFiles();
     if (!selected.length) return;
     const normalized = selected.map(normalizePath);
-    const merged = Array.from(new Set([...pinnedFiles, ...normalized]));
+    const merged = mergeUniquePaths(pinnedFiles, normalized);
     setPinnedFiles(merged);
     await storeSet('pinnedFiles', merged);
-    await openFile(normalized[0]);
+    await openFile(normalized[normalized.length - 1]);
   };
 
   const handleToggleFileStar = async (path: string) => {
@@ -172,6 +185,24 @@ function App() {
     await storeSet('filesPanelOpen', next);
   };
 
+  const handleRemovePinnedFile = async (path: string) => {
+    const normalized = normalizePath(path);
+    const nextFiles = pinnedFiles.filter(p => p.toLowerCase() !== normalized.toLowerCase());
+    setPinnedFiles(nextFiles);
+    await storeSet('pinnedFiles', nextFiles);
+
+    const nextStars = starredFiles.filter(p => p.toLowerCase() !== normalized.toLowerCase());
+    setStarredFiles(nextStars);
+    await storeSet('starredFiles', nextStars);
+  };
+
+  const handleClearUnstarredFiles = async () => {
+    const starSet = new Set(starredFiles.map(p => p.toLowerCase()));
+    const nextFiles = pinnedFiles.filter(p => starSet.has(p.toLowerCase()));
+    setPinnedFiles(nextFiles);
+    await storeSet('pinnedFiles', nextFiles);
+  };
+
   return (
     <AppLayout
       pinnedDirs={pinnedDirs}
@@ -183,6 +214,8 @@ function App() {
       onAddFiles={handleAddFiles}
       onToggleFileStar={handleToggleFileStar}
       onToggleFilesPanel={handleToggleFilesPanel}
+      onRemovePinnedFile={handleRemovePinnedFile}
+      onClearUnstarredFiles={handleClearUnstarredFiles}
       activeFile={filePath}
       content={content}
       saveState={saveState}

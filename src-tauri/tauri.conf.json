@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "markdown-reader",
+  "productName": "MarkdownEditor",
   "version": "0.1.0",
   "identifier": "com.sophysun.markdown-reader",
   "build": {
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "Pastel Markdown Editor",
+        "title": "MarkdownEditor",
         "width": 1280,
         "height": 800,
         "minWidth": 800,
@@ -34,7 +34,7 @@
       {
         "ext": ["md", "markdown", "mdown", "mkd", "mkdn", "mdx", "rmd", "qmd"],
         "name": "Markdown Document",
-        "description": "Open markdown files in Pastel Markdown Editor",
+        "description": "Open markdown files in MarkdownEditor",
         "mimeType": "text/markdown"
       }
     ],

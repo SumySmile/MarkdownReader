@@ -17,6 +17,8 @@ interface AppLayoutProps {
   onAddFiles: () => Promise<void> | void;
   onToggleFileStar: (path: string) => void;
   onToggleFilesPanel: () => void;
+  onRemovePinnedFile: (path: string) => Promise<void> | void;
+  onClearUnstarredFiles: () => Promise<void> | void;
   activeFile: string | null;
   content: string;
   saveState: SaveState;
@@ -36,7 +38,7 @@ interface AppLayoutProps {
 function WelcomeCard() {
   return (
     <div className="flex flex-col items-center justify-center h-full" style={{ color: 'var(--text-muted)' }}>
-      <h2 className="text-xl font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>Pastel Markdown Editor</h2>
+      <h2 className="text-xl font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>MarkdownEditor</h2>
       <p className="text-sm mb-6">Open a file from the sidebar to start editing</p>
       <div className="text-xs space-y-1.5 text-left bg-[var(--bg-surface)] rounded p-4">
         <p><kbd className="bg-[var(--bg-overlay)] px-1.5 py-0.5 rounded text-[10px]">Ctrl+S</kbd> Save</p>
@@ -49,7 +51,7 @@ function WelcomeCard() {
 }
 
 export function AppLayout({
-  pinnedDirs, pinnedFiles, starredFiles, filesPanelOpen, onPinDir, onUnpinDir, onAddFiles, onToggleFileStar, onToggleFilesPanel, activeFile, content, saveState, isDirty,
+  pinnedDirs, pinnedFiles, starredFiles, filesPanelOpen, onPinDir, onUnpinDir, onAddFiles, onToggleFileStar, onToggleFilesPanel, onRemovePinnedFile, onClearUnstarredFiles, activeFile, content, saveState, isDirty,
   mode, theme, syncScroll, onSelectFile, onContentChange, onModeChange, onThemeToggle, onToggleSyncScroll, onSave, wysiwygRef,
 }: AppLayoutProps) {
   const editorArea = activeFile ? (
@@ -97,6 +99,8 @@ export function AppLayout({
             onAddFiles={onAddFiles}
             onToggleFileStar={onToggleFileStar}
             onToggleFilesPanel={onToggleFilesPanel}
+            onRemovePinnedFile={onRemovePinnedFile}
+            onClearUnstarredFiles={onClearUnstarredFiles}
             onSelectFile={onSelectFile}
             activeFile={activeFile}
           />
