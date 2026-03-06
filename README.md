@@ -21,6 +21,7 @@ A desktop Markdown editor based on Tauri + React + TypeScript.
   - Import single or multiple files (toolbar icon / `Ctrl+O`).
   - Explorer uses grouped cards: `Files` and `Folders`.
   - `Files` panel supports collapse/expand (default expanded).
+  - Empty state visuals are unified between `Files` and `Folders` cards.
   - Quick filter chips below search: `MD`, `Star`, and `Clear`.
   - Star files and pin starred files to top.
   - Starring a file from the folder tree syncs to the Files panel.
@@ -82,3 +83,4 @@ npm run tauri dev
 - Dark theme palette is tuned for readability with slightly lighter deep gray backgrounds.
 - If startup or preview content seems stale after rapid file switching/importing, request sequencing and stale watcher callback guards are included to prevent old file reads from overriding current content.
 - On startup restore, pinned directories/files, expanded directory nodes, and the last opened file are restored; the active file is re-added to the imported file list and scrolled into active view.
+- Path handling uses a shared normalization utility (including Windows drive/root and long-path prefix cases) to keep imported list, folder tree, and star state matching reliably.

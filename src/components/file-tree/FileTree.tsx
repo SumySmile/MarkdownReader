@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { isOpenablePath } from '../../lib/markdown';
+import { normalizePath, pathKey, pathKeyNoDrive } from '../../lib/path';
 
 interface FileTreeProps {
   pinnedDirs: string[];
@@ -48,10 +49,6 @@ type ContextMenuState =
   | { x: number; y: number; kind: 'files-panel' }
   | null;
 
-function normalizePath(path: string): string {
-  return path.replace(/\\/g, '/');
-}
-
 function pathName(path: string): string {
   return path.split(/[\\/]/).pop() ?? path;
 }
@@ -59,6 +56,15 @@ function pathName(path: string): string {
 function isMarkdownPath(path: string): boolean {
   const lower = path.toLowerCase();
   return lower.endsWith('.md') || lower.endsWith('.markdown') || lower.endsWith('.mdx');
+}
+
+function EmptyState({ title, subtitle }: { title: string; subtitle?: string }) {
+  return (
+    <div className="flex h-full min-h-16 flex-col items-center justify-center px-3 py-3 text-center">
+      <p className="text-[var(--text-muted)] text-sm">{title}</p>
+      {subtitle ? <p className="text-[var(--text-muted)] text-xs mt-1">{subtitle}</p> : null}
+    </div>
+  );
 }
 
 function NodeRow({ node, style, starred = false }: NodeRendererProps<TreeNode> & { starred?: boolean }) {
@@ -83,7 +89,7 @@ function NodeRow({ node, style, starred = false }: NodeRendererProps<TreeNode> &
       </span>
       <Icon size={14} className={cn(isDir ? 'text-[var(--accent-primary)]' : 'text-[var(--text-secondary)]')} />
       <span
-        className="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-[var(--text-secondary)]"
+        className="block min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-[var(--text-secondary)]"
         title={node.data.path}
       >
         {node.data.name}
@@ -246,12 +252,17 @@ export function FileTree({
   }, [contextMenu, closeContextMenu]);
 
   const starredPathSet = useMemo(() => {
-    return new Set(starredFiles.map(path => normalizePath(path).toLowerCase()));
+    return new Set(starredFiles.map(pathKey));
+  }, [starredFiles]);
+  const starredPathNoDriveSet = useMemo(() => {
+    return new Set(starredFiles.map(pathKeyNoDrive));
   }, [starredFiles]);
 
   const isStarredPath = useCallback((path: string) => {
-    return starredPathSet.has(normalizePath(path).toLowerCase());
-  }, [starredPathSet]);
+    const key = pathKey(path);
+    if (starredPathSet.has(key)) return true;
+    return starredPathNoDriveSet.has(pathKeyNoDrive(path));
+  }, [starredPathNoDriveSet, starredPathSet]);
 
   const hasQuickFilter = filterMdOnly || filterStarOnly;
 
@@ -308,12 +319,12 @@ export function FileTree({
         return path.toLowerCase().includes(term) || name.includes(term);
       })
       .sort((a, b) => {
-        const aStar = starredPathSet.has(a.toLowerCase());
-        const bStar = starredPathSet.has(b.toLowerCase());
+        const aStar = isStarredPath(a);
+        const bStar = isStarredPath(b);
         if (aStar !== bStar) return aStar ? -1 : 1;
         return a.toLowerCase().localeCompare(b.toLowerCase());
       });
-  }, [pathMatchesQuickFilters, pinnedFiles, searchQuery, starredPathSet]);
+  }, [isStarredPath, pathMatchesQuickFilters, pinnedFiles, searchQuery]);
 
   const normalizedActive = normalizePath(activeFile ?? '');
   const activeRowRef = useRef<HTMLDivElement | null>(null);
@@ -432,7 +443,10 @@ export function FileTree({
             {filesPanelOpen && (
               <div className="max-h-44 overflow-auto app-scrollbar px-1 pb-1">
                 {filteredFiles.length === 0 ? (
-                  <div className="px-2 py-2 text-xs text-[var(--text-muted)]">No imported files.</div>
+                  <EmptyState
+                    title="No imported files."
+                    subtitle="Click +File to add"
+                  />
                 ) : (
                   filteredFiles.map(path => {
                     const isStarred = isStarredPath(path);
@@ -455,7 +469,7 @@ export function FileTree({
                       >
                         <File size={13} />
                         <span
-                          className="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap"
+                          className="block min-w-0 overflow-hidden text-ellipsis whitespace-nowrap"
                           title={path}
                         >
                           {pathName(path)}
@@ -481,10 +495,7 @@ export function FileTree({
 
             <div ref={containerRef} className="flex-1 overflow-hidden app-scrollbar">
               {pinnedDirs.length === 0 ? (
-                <div className="flex flex-col items-center justify-center h-full text-center px-4">
-                  <p className="text-[var(--text-muted)] text-sm">No folders pinned.</p>
-                  <p className="text-[var(--text-muted)] text-xs mt-1">Click + Dir to start</p>
-                </div>
+                <EmptyState title="No folders pinned." subtitle="Click +Dir to start" />
               ) : (
                 <Tree<TreeNode>
                   data={visibleTreeData}

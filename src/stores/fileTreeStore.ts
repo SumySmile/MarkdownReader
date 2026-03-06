@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { hasOpenableFilesInDirectory, listDirSorted } from '../lib/fs';
 import { isOpenablePath } from '../lib/markdown';
+import { normalizePath } from '../lib/path';
 
 export type FileNode = { id: string; name: string; path: string; isDirectory: false; children?: never };
 export type DirectoryNode = { id: string; name: string; path: string; isDirectory: true; children: TreeNode[] | null };
@@ -22,12 +23,12 @@ async function mapEntries(entries: { name: string; path: string; is_dir: boolean
   const mappedDirs = dirs
     .filter((_, idx) => dirChecks[idx])
     .map(e => {
-      const path = e.path;
+      const path = normalizePath(e.path);
       return { id: path, name: e.name, path, isDirectory: true, children: null } as DirectoryNode;
     });
 
   const mappedFiles = files.map(e => {
-    const path = e.path;
+    const path = normalizePath(e.path);
     return { id: path, name: e.name, path, isDirectory: false } as FileNode;
   });
 

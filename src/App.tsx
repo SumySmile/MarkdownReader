@@ -5,12 +5,9 @@ import { useFileWatcher } from './hooks/useFileWatcher';
 import { storeGet, storeSet } from './lib/store';
 import { getLaunchArgs, hasOpenableFilesInDirectory, openContainingFolder, openDirectory, pickOpenableTextFiles, readFile, renamePath } from './lib/fs';
 import { getFileKind, isEditablePath, isOpenablePath, isReadonlyPreviewPath, type FileKind } from './lib/markdown';
+import { normalizePath, pathKey } from './lib/path';
 import type { EditorMode, Theme } from './components/layout/Toolbar';
 import { THEME_NEXT } from './components/layout/Toolbar';
-
-function normalizePath(path: string): string {
-  return path.replace(/\\/g, '/');
-}
 
 function mergeUniquePaths(existing: string[], incoming: string[]): string[] {
   const map = new Map<string, string>();
@@ -26,8 +23,8 @@ function mergeUniquePaths(existing: string[], incoming: string[]): string[] {
 }
 
 function removePathCaseInsensitive(paths: string[], target: string): string[] {
-  const lower = target.toLowerCase();
-  return paths.filter(item => item.toLowerCase() !== lower);
+  const targetKey = pathKey(target);
+  return paths.filter(item => pathKey(item) !== targetKey);
 }
 
 async function filterValidPinnedDirs(paths: string[]): Promise<string[]> {
@@ -314,14 +311,14 @@ function App() {
 
   const handleToggleFileStar = async (path: string) => {
     const normalized = normalizePath(path);
-    const lower = normalized.toLowerCase();
+    const lower = pathKey(normalized);
     let becameStarred = false;
     let nextStars: string[] = [];
     setStarredFiles(prev => {
-      const exists = prev.some(item => item.toLowerCase() === lower);
+      const exists = prev.some(item => pathKey(item) === lower);
       becameStarred = !exists;
       nextStars = exists
-        ? prev.filter(item => item.toLowerCase() !== lower)
+        ? prev.filter(item => pathKey(item) !== lower)
         : [...prev, normalized];
       return nextStars;
     });
@@ -356,10 +353,11 @@ function App() {
 
   const handleRemoveOtherPinnedFiles = async (path: string) => {
     const normalized = normalizePath(path);
-    const keepFile = pinnedFiles.find(item => item.toLowerCase() === normalized.toLowerCase()) ?? normalized;
+    const normalizedKey = pathKey(normalized);
+    const keepFile = pinnedFiles.find(item => pathKey(item) === normalizedKey) ?? normalized;
     const nextFiles = [keepFile];
-    const keepLower = keepFile.toLowerCase();
-    const nextStars = starredFiles.filter(item => item.toLowerCase() === keepLower);
+    const keepLower = pathKey(keepFile);
+    const nextStars = starredFiles.filter(item => pathKey(item) === keepLower);
 
     setPinnedFiles(nextFiles);
     setStarredFiles(nextStars);
@@ -370,8 +368,8 @@ function App() {
   };
 
   const handleClearUnstarredFiles = async () => {
-    const starSet = new Set(starredFiles.map(p => p.toLowerCase()));
-    const nextFiles = pinnedFiles.filter(p => starSet.has(p.toLowerCase()));
+    const starSet = new Set(starredFiles.map(pathKey));
+    const nextFiles = pinnedFiles.filter(p => starSet.has(pathKey(p)));
     setPinnedFiles(nextFiles);
     await storeSet('pinnedFiles', nextFiles);
   };
