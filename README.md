@@ -13,7 +13,7 @@ A desktop Markdown editor based on Tauri + React + TypeScript.
 - Sidebar supports both:
   - Folder explorer (for openable files in pinned directories).
   - File panel (imported files list, independent from folder tree).
-  - Explorer panel can be hidden/shown from the top toolbar.
+  - Explorer panel can be hidden/shown from the sidebar divider toggle.
 - Pinned directory safety:
   - Directories with no openable files are skipped when pinning.
   - Stored pinned directories are re-validated on startup and invalid ones are removed.
@@ -21,7 +21,7 @@ A desktop Markdown editor based on Tauri + React + TypeScript.
   - Import single or multiple files (toolbar icon / `Ctrl+O`).
   - Collapse/expand panel (default expanded).
   - Star files and pin starred files to top.
-  - Right-click file: open / star / remove / copy path / open containing folder.
+  - Right-click file: open / rename / star / remove / copy path / open containing folder.
   - Right-click any directory node: copy path / open directory / refresh (plus unpin when the directory is pinned).
   - Right-click Files header: clear unstarred files.
 - AI-skill oriented file support:
@@ -72,5 +72,6 @@ npm run tauri dev
 
 - App window title: `MarkdownEditor`.
 - Product name in packaging metadata: `MarkdownEditor`.
+- Dark theme palette is tuned for readability with slightly lighter deep gray backgrounds.
 - If startup or preview content seems stale after rapid file switching/importing, request sequencing and stale watcher callback guards are included to prevent old file reads from overriding current content.
-- On startup restore, the last opened file is re-added to the imported file list and scrolled into active view.
+- On startup restore, pinned directories/files, expanded directory nodes, and the last opened file are restored; the active file is re-added to the imported file list and scrolled into active view.

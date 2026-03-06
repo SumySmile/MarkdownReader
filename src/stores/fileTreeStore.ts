@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { listDirSorted } from '../lib/fs';
+import { hasOpenableFilesInDirectory, listDirSorted } from '../lib/fs';
 import { isOpenablePath } from '../lib/markdown';
 
 export type FileNode = { id: string; name: string; path: string; isDirectory: false; children?: never };
@@ -13,17 +13,25 @@ interface DirCacheEntry {
 
 const CACHE_TTL_MS = 30_000;
 
-function mapEntries(entries: { name: string; path: string; is_dir: boolean }[]): TreeNode[] {
-  return entries
-    .filter(e => e.name)
-    .filter(e => e.is_dir || isOpenablePath(e.name))
+async function mapEntries(entries: { name: string; path: string; is_dir: boolean }[]): Promise<TreeNode[]> {
+  const named = entries.filter(e => e.name);
+  const dirs = named.filter(e => e.is_dir);
+  const files = named.filter(e => !e.is_dir && isOpenablePath(e.name));
+  const dirChecks = await Promise.all(dirs.map(dir => hasOpenableFilesInDirectory(dir.path)));
+
+  const mappedDirs = dirs
+    .filter((_, idx) => dirChecks[idx])
     .map(e => {
       const path = e.path;
-      if (e.is_dir) {
-        return { id: path, name: e.name, path, isDirectory: true, children: null } as DirectoryNode;
-      }
-      return { id: path, name: e.name, path, isDirectory: false } as FileNode;
+      return { id: path, name: e.name, path, isDirectory: true, children: null } as DirectoryNode;
     });
+
+  const mappedFiles = files.map(e => {
+    const path = e.path;
+    return { id: path, name: e.name, path, isDirectory: false } as FileNode;
+  });
+
+  return [...mappedDirs, ...mappedFiles];
 }
 
 interface FileTreeStore {
@@ -41,7 +49,7 @@ export const useFileTreeStore = create<FileTreeStore>((set, get) => ({
       return cached.entries;
     }
     const raw = await listDirSorted(path);
-    const entries = mapEntries(raw);
+    const entries = await mapEntries(raw);
     set(s => ({
       dirCache: new Map(s.dirCache).set(path, { entries, fetchedAt: Date.now() }),
     }));

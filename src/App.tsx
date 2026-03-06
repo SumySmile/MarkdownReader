@@ -3,7 +3,7 @@ import { AppLayout } from './components/layout/AppLayout';
 import { useActiveFile } from './hooks/useActiveFile';
 import { useFileWatcher } from './hooks/useFileWatcher';
 import { storeGet, storeSet } from './lib/store';
-import { getLaunchArgs, hasOpenableFilesInDirectory, openContainingFolder, openDirectory, pickOpenableTextFiles, readFile } from './lib/fs';
+import { getLaunchArgs, hasOpenableFilesInDirectory, openContainingFolder, openDirectory, pickOpenableTextFiles, readFile, renamePath } from './lib/fs';
 import { getFileKind, isEditablePath, isOpenablePath, isReadonlyPreviewPath, type FileKind } from './lib/markdown';
 import type { EditorMode, Theme } from './components/layout/Toolbar';
 import { THEME_NEXT } from './components/layout/Toolbar';
@@ -60,6 +60,7 @@ function App() {
   const [theme, setTheme] = useState<Theme>('gray');
   const [syncScroll, setSyncScroll] = useState<boolean>(true);
   const [sidebarVisible, setSidebarVisible] = useState<boolean>(true);
+  const [expandedDirs, setExpandedDirs] = useState<string[]>([]);
   const [activeFileKind, setActiveFileKind] = useState<FileKind | null>(null);
   const [activeFileEditable, setActiveFileEditable] = useState<boolean>(true);
   const [readonlyReason, setReadonlyReason] = useState<string | null>(null);
@@ -137,6 +138,9 @@ function App() {
       const savedSidebarVisible = await storeGet<boolean>('sidebarVisible');
       if (typeof savedSidebarVisible === 'boolean') setSidebarVisible(savedSidebarVisible);
 
+      const savedExpandedDirs = await storeGet<string[]>('expandedDirs');
+      if (savedExpandedDirs?.length) setExpandedDirs(savedExpandedDirs.map(normalizePath));
+
       const args = await getLaunchArgs();
       const launchPath = args.map(normalizePath).find(isOpenablePath);
       if (launchPath) {
@@ -182,7 +186,6 @@ function App() {
     if (!targetPath) return;
     readFile(targetPath)
       .then(text => {
-        // Ignore stale watcher callbacks after active file has changed.
         if (activeFilePathRef.current !== targetPath) return;
         if (text !== activeContentRef.current) {
           openFileByPath(targetPath);
@@ -287,6 +290,12 @@ function App() {
     await storeSet('sidebarVisible', next);
   };
 
+  const handleExpandedDirsChange = async (paths: string[]) => {
+    const normalized = paths.map(normalizePath);
+    setExpandedDirs(normalized);
+    await storeSet('expandedDirs', normalized);
+  };
+
   const handleAddFiles = async () => {
     const selected = await pickOpenableTextFiles();
     if (!selected.length) return;
@@ -383,6 +392,40 @@ function App() {
     }
   };
 
+  const handleRenameFile = async (path: string) => {
+    const normalized = normalizePath(path);
+    const oldName = normalized.split('/').pop() ?? normalized;
+    const slash = normalized.lastIndexOf('/');
+    const dir = slash >= 0 ? normalized.slice(0, slash) : '';
+    const input = window.prompt('Rename file (include extension):', oldName);
+    if (!input) return;
+    const trimmed = input.trim();
+    if (!trimmed || trimmed === oldName) return;
+    if (trimmed.includes('/') || trimmed.includes('\\')) return;
+
+    const nextPath = `${dir}/${trimmed}`;
+    try {
+      await renamePath(normalized, nextPath);
+
+      setPinnedFiles(prev => {
+        const next = prev.map(item => item.toLowerCase() === normalized.toLowerCase() ? nextPath : item);
+        storeSet('pinnedFiles', next);
+        return next;
+      });
+      setStarredFiles(prev => {
+        const next = prev.map(item => item.toLowerCase() === normalized.toLowerCase() ? nextPath : item);
+        storeSet('starredFiles', next);
+        return next;
+      });
+
+      if (filePath && normalizePath(filePath).toLowerCase() === normalized.toLowerCase()) {
+        await openFileByPath(nextPath);
+      }
+    } catch (error) {
+      console.error('[App] rename file failed', error);
+    }
+  };
+
   const handleContentChange = (text: string) => {
     if (!activeFileEditable) return;
     handleChange(text);
@@ -411,6 +454,7 @@ function App() {
       onCopyDirectoryPath={handleCopyDirectoryPath}
       onOpenContainingFolder={handleOpenContainingFolder}
       onOpenDirectory={handleOpenDirectory}
+      onRenameFile={handleRenameFile}
       activeFile={filePath}
       activeFileKind={activeFileKind}
       activeFileEditable={activeFileEditable}
@@ -422,6 +466,7 @@ function App() {
       theme={theme}
       syncScroll={syncScroll}
       sidebarVisible={sidebarVisible}
+      expandedDirs={expandedDirs}
       onSelectFile={openFileByPath}
       onContentChange={handleContentChange}
       onModeChange={handleModeChange}
@@ -429,10 +474,10 @@ function App() {
       onThemeToggle={handleThemeToggle}
       onToggleSyncScroll={handleToggleSyncScroll}
       onToggleSidebar={handleToggleSidebar}
+      onExpandedDirsChange={handleExpandedDirsChange}
       onSave={handleSave}
     />
   );
 }
 
 export default App;
-

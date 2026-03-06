@@ -12,9 +12,11 @@ import {
   FolderPlus,
   RefreshCw,
   Star,
+  Pencil,
+  Files,
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
-import { getFileKind, isOpenablePath } from '../../lib/markdown';
+import { isOpenablePath } from '../../lib/markdown';
 
 interface FileTreeProps {
   pinnedDirs: string[];
@@ -33,6 +35,9 @@ interface FileTreeProps {
   onCopyDirectoryPath: (path: string) => Promise<void> | void;
   onOpenContainingFolder: (path: string) => Promise<void> | void;
   onOpenDirectory: (path: string) => Promise<void> | void;
+  onRenameFile: (path: string) => Promise<void> | void;
+  expandedDirs: string[];
+  onExpandedDirsChange: (paths: string[]) => void;
   onSelectFile: (path: string) => Promise<void> | void;
   activeFile?: string | null;
 }
@@ -73,7 +78,7 @@ function NodeRow({ node, style }: NodeRendererProps<TreeNode>) {
       </span>
       <Icon size={14} className={cn(isDir ? 'text-[var(--accent-primary)]' : 'text-[var(--text-secondary)]', 'flex-shrink-0')} />
       <span className={cn('truncate', isDir ? 'text-[var(--text-primary)]' : 'text-[var(--text-secondary)]')}>
-        {node.data.name}
+        <span title={node.data.path}>{node.data.name}</span>
       </span>
     </div>
   );
@@ -119,6 +124,9 @@ export function FileTree({
   onCopyDirectoryPath,
   onOpenContainingFolder,
   onOpenDirectory,
+  onRenameFile,
+  expandedDirs,
+  onExpandedDirsChange,
   onSelectFile,
   activeFile,
 }: FileTreeProps) {
@@ -170,6 +178,13 @@ export function FileTree({
   }, []);
 
   const handleToggle = useCallback(async (id: string) => {
+    const normalized = normalizePath(id);
+    const lower = normalized.toLowerCase();
+    const nextExpanded = expandedDirs.some(path => path.toLowerCase() === lower)
+      ? expandedDirs.filter(path => path.toLowerCase() !== lower)
+      : [...expandedDirs, normalized];
+    onExpandedDirsChange(nextExpanded);
+
     const node = findNode(treeData, id);
     if (!node || !node.isDirectory || node.children !== null) return;
     try {
@@ -178,7 +193,7 @@ export function FileTree({
     } catch (err) {
       console.error('[FileTree] loadChildren failed', id, err);
     }
-  }, [treeData, getOrFetch]);
+  }, [expandedDirs, onExpandedDirsChange, treeData, getOrFetch]);
 
   const handleRefreshDir = useCallback(async (path: string) => {
     invalidate(path);
@@ -256,7 +271,7 @@ export function FileTree({
     return () => window.clearTimeout(id);
   }, [normalizedActive, filesPanelOpen, treeData]);
 
-  const menuItemClass = 'w-full text-left px-3 py-1.5 text-xs text-[var(--text-secondary)] hover:bg-[var(--bg-divider)]';
+  const menuItemClass = 'w-full text-left px-2.5 py-1 text-xs text-[var(--text-secondary)] hover:bg-[var(--bg-divider)]';
   const menuDangerItemClass = `${menuItemClass} text-[var(--accent-error)]`;
 
   return (
@@ -304,6 +319,7 @@ export function FileTree({
           title={filesPanelOpen ? 'Collapse files' : 'Expand files'}
         >
           {filesPanelOpen ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+          <Files size={12} />
           <span>Files</span>
           <span className="ml-auto normal-case">{filteredFiles.length}</span>
         </button>
@@ -314,7 +330,6 @@ export function FileTree({
               <div className="px-2 py-2 text-xs text-[var(--text-muted)]">No imported files.</div>
             ) : (
               filteredFiles.map(path => {
-                const kind = getFileKind(path);
                 const isStarred = starredPathSet.has(path.toLowerCase());
                 const isActive = normalizedActive === path;
                 return (
@@ -334,8 +349,7 @@ export function FileTree({
                     }}
                   >
                     <File size={13} className="text-[var(--text-secondary)] flex-shrink-0" />
-                    <span className="truncate text-[var(--text-secondary)]">{pathName(path)}</span>
-                    <span className="text-[10px] uppercase text-[var(--text-muted)]">{kind}</span>
+                    <span className="truncate text-[var(--text-secondary)]" title={path}>{pathName(path)}</span>
                     {isStarred && <Star size={12} className="text-[var(--accent-warning)] ml-1" />}
                   </div>
                 );
@@ -362,6 +376,7 @@ export function FileTree({
             searchTerm={searchQuery}
             searchMatch={searchMatch}
             openByDefault={false}
+            initialOpenState={Object.fromEntries(expandedDirs.map(path => [normalizePath(path), true]))}
             disableDrag
             disableDrop
             disableEdit
@@ -384,6 +399,11 @@ export function FileTree({
                     const normalized = normalizePath(props.node.data.path).toLowerCase();
                     const pinned = pinnedDirs.some(dir => normalizePath(dir).toLowerCase() === normalized);
                     setContextMenu({ x: e.clientX, y: e.clientY, kind: 'dir', path: props.node.data.path, pinned });
+                  } else {
+                    e.preventDefault();
+                    const normalized = normalizePath(props.node.data.path).toLowerCase();
+                    const starred = starredPathSet.has(normalized);
+                    setContextMenu({ x: e.clientX, y: e.clientY, kind: 'file', path: props.node.data.path, starred });
                   }
                 }}
               >
@@ -396,7 +416,7 @@ export function FileTree({
 
       {contextMenu && (
         <div
-          className="fixed z-50 bg-[var(--bg-overlay)] border border-[var(--bg-divider)] rounded shadow-lg py-1 text-sm min-w-44"
+          className="fixed z-50 bg-[var(--bg-overlay)] border border-[var(--bg-divider)] rounded shadow-lg py-1 text-sm min-w-36"
           style={{ left: contextMenu.x, top: contextMenu.y }}
         >
           {contextMenu.kind === 'dir' && (
@@ -453,6 +473,17 @@ export function FileTree({
                 }}
               >
                 Open
+              </button>
+              <button
+                className={menuItemClass}
+                onClick={() => {
+                  Promise.resolve(onRenameFile(contextMenu.path)).finally(() => setContextMenu(null));
+                }}
+              >
+                <span className="inline-flex items-center gap-1">
+                  <Pencil size={12} />
+                  Rename
+                </span>
               </button>
               <button
                 className={menuItemClass}

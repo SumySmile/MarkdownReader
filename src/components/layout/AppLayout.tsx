@@ -6,6 +6,7 @@ import { Toolbar, EditorMode, Theme } from './Toolbar';
 import { ErrorBoundary } from '../ErrorBoundary';
 import { SaveState } from '../../hooks/useActiveFile';
 import type { FileKind } from '../../lib/markdown';
+import { PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 
 interface AppLayoutProps {
   pinnedDirs: string[];
@@ -24,6 +25,7 @@ interface AppLayoutProps {
   onCopyDirectoryPath: (path: string) => Promise<void> | void;
   onOpenContainingFolder: (path: string) => Promise<void> | void;
   onOpenDirectory: (path: string) => Promise<void> | void;
+  onRenameFile: (path: string) => Promise<void> | void;
   activeFile: string | null;
   activeFileKind: FileKind | null;
   activeFileEditable: boolean;
@@ -35,6 +37,7 @@ interface AppLayoutProps {
   theme: Theme;
   syncScroll: boolean;
   sidebarVisible: boolean;
+  expandedDirs: string[];
   onSelectFile: (path: string) => Promise<void> | void;
   onContentChange: (text: string) => void;
   onModeChange: (mode: EditorMode) => void;
@@ -42,6 +45,7 @@ interface AppLayoutProps {
   onThemeToggle: () => void;
   onToggleSyncScroll: () => void;
   onToggleSidebar: () => void;
+  onExpandedDirsChange: (paths: string[]) => void;
   onSave: () => void;
 }
 
@@ -77,6 +81,7 @@ export function AppLayout({
   onCopyDirectoryPath,
   onOpenContainingFolder,
   onOpenDirectory,
+  onRenameFile,
   activeFile,
   activeFileKind,
   activeFileEditable,
@@ -88,6 +93,7 @@ export function AppLayout({
   theme,
   syncScroll,
   sidebarVisible,
+  expandedDirs,
   onSelectFile,
   onContentChange,
   onModeChange,
@@ -95,6 +101,7 @@ export function AppLayout({
   onThemeToggle,
   onToggleSyncScroll,
   onToggleSidebar,
+  onExpandedDirsChange,
   onSave,
 }: AppLayoutProps) {
   const previewKind: FileKind = activeFileKind ?? 'markdown';
@@ -120,7 +127,7 @@ export function AppLayout({
   );
 
   return (
-    <div className="flex h-full" style={{ backgroundColor: 'var(--bg-base)' }}>
+    <div className="relative flex h-full" style={{ backgroundColor: 'var(--bg-base)' }}>
       {sidebarVisible && (
         <div className="w-64 flex-shrink-0 border-r" style={{ borderColor: 'var(--bg-divider)' }}>
           <ErrorBoundary fallback={
@@ -143,6 +150,9 @@ export function AppLayout({
               onCopyDirectoryPath={onCopyDirectoryPath}
               onOpenContainingFolder={onOpenContainingFolder}
               onOpenDirectory={onOpenDirectory}
+              onRenameFile={onRenameFile}
+              expandedDirs={expandedDirs}
+              onExpandedDirsChange={onExpandedDirsChange}
               onSelectFile={onSelectFile}
               activeFile={activeFile}
             />
@@ -164,8 +174,6 @@ export function AppLayout({
           onThemeToggle={onThemeToggle}
           syncScroll={syncScroll}
           onToggleSyncScroll={onToggleSyncScroll}
-          sidebarVisible={sidebarVisible}
-          onToggleSidebar={onToggleSidebar}
           saveState={saveState}
           onSave={onSave}
           fileName={activeFile}
@@ -178,6 +186,23 @@ export function AppLayout({
           </ErrorBoundary>
         </div>
       </div>
+
+      <button
+        onClick={onToggleSidebar}
+        title={sidebarVisible ? 'Hide explorer' : 'Show explorer'}
+        aria-label={sidebarVisible ? 'Hide explorer' : 'Show explorer'}
+        className="absolute top-2 p-1 rounded border"
+        style={{
+          left: sidebarVisible ? '16rem' : '0.25rem',
+          transform: sidebarVisible ? 'translateX(-50%)' : 'none',
+          borderColor: 'var(--bg-divider)',
+          backgroundColor: 'var(--bg-surface)',
+          color: 'var(--text-secondary)',
+          zIndex: 30,
+        }}
+      >
+        {sidebarVisible ? <PanelLeftClose size={13} /> : <PanelLeftOpen size={13} />}
+      </button>
     </div>
   );
 }

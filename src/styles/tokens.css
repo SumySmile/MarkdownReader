@@ -2,14 +2,14 @@
 
 /* Dark (default) */
 :root {
-  --bg-base:        #20232c;
-  --bg-surface:     #1b1f27;
-  --bg-overlay:     #2b3140;
-  --bg-divider:     #3b4354;
+  --bg-base:        #252a31;
+  --bg-surface:     #20252d;
+  --bg-overlay:     #2f3541;
+  --bg-divider:     #464f63;
 
-  --text-primary:   #d7ddec;
-  --text-secondary: #c0c8dc;
-  --text-muted:     #8993aa;
+  --text-primary:   #e1e7f3;
+  --text-secondary: #c8d0e3;
+  --text-muted:     #97a3bc;
 
   --syntax-keyword: #b6a6d9;
   --syntax-string:  #93c8a3;
