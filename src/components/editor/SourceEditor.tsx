@@ -2,7 +2,7 @@ import { useRef, useMemo, useEffect, useState } from 'react';
 import { useCodeMirror } from './useCodeMirror';
 import { markdown, markdownLanguage } from '@codemirror/lang-markdown';
 import { languages } from '@codemirror/language-data';
-import { LanguageDescription } from '@codemirror/language';
+import { LanguageDescription, defaultHighlightStyle, syntaxHighlighting } from '@codemirror/language';
 import { EditorView } from '@codemirror/view';
 import { defaultKeymap, history, historyKeymap } from '@codemirror/commands';
 import { keymap, lineNumbers, drawSelection } from '@codemirror/view';
@@ -35,7 +35,7 @@ const baseTheme = EditorView.theme({
   '&.cm-focused .cm-selectionBackground': { backgroundColor: 'var(--bg-overlay)' },
   '.cm-activeLineGutter': { backgroundColor: 'var(--bg-overlay)' },
   '.cm-activeLine': { backgroundColor: 'rgba(255,255,255,0.03)' },
-  '.cm-scroller': { overflow: 'auto', height: '100%' },
+  '.cm-scroller': { overflow: 'auto', height: '100%', scrollbarGutter: 'stable both-edges' },
 });
 
 function normalizePath(path: string): string {
@@ -86,6 +86,7 @@ export function SourceEditor({ content, onChange, filePath, readOnly = false }: 
     lineNumbers(),
     drawSelection(),
     keymap.of([...defaultKeymap, ...historyKeymap]),
+    syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
     isMarkdownFile ? markdown({ base: markdownLanguage, codeLanguages: languages }) : languageExtension,
     EditorState.readOnly.of(readOnly),
     EditorView.editable.of(!readOnly),

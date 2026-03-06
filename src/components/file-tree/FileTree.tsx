@@ -2,7 +2,17 @@
 import { Tree, NodeApi, NodeRendererProps } from 'react-arborist';
 import { useFileTreeStore, TreeNode, DirectoryNode } from '../../stores/fileTreeStore';
 import { pickDirectory } from '../../lib/fs';
-import { ChevronRight, ChevronDown, File, Folder, FolderOpen, Plus, Star } from 'lucide-react';
+import {
+  ChevronRight,
+  ChevronDown,
+  File,
+  Folder,
+  FolderOpen,
+  FilePlus,
+  FolderPlus,
+  RefreshCw,
+  Star,
+} from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { getFileKind, isOpenablePath } from '../../lib/markdown';
 
@@ -20,7 +30,9 @@ interface FileTreeProps {
   onRemoveOtherPinnedFiles: (path: string) => Promise<void> | void;
   onClearUnstarredFiles: () => Promise<void> | void;
   onCopyFullPath: (path: string) => Promise<void> | void;
+  onCopyDirectoryPath: (path: string) => Promise<void> | void;
   onOpenContainingFolder: (path: string) => Promise<void> | void;
+  onOpenDirectory: (path: string) => Promise<void> | void;
   onSelectFile: (path: string) => Promise<void> | void;
   activeFile?: string | null;
 }
@@ -104,13 +116,15 @@ export function FileTree({
   onRemoveOtherPinnedFiles,
   onClearUnstarredFiles,
   onCopyFullPath,
+  onCopyDirectoryPath,
   onOpenContainingFolder,
+  onOpenDirectory,
   onSelectFile,
   activeFile,
 }: FileTreeProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [height, setHeight] = useState(400);
-  const { getOrFetch } = useFileTreeStore();
+  const { getOrFetch, invalidate } = useFileTreeStore();
   const [searchQuery, setSearchQuery] = useState('');
   const [contextMenu, setContextMenu] = useState<ContextMenuState>(null);
 
@@ -165,6 +179,18 @@ export function FileTree({
       console.error('[FileTree] loadChildren failed', id, err);
     }
   }, [treeData, getOrFetch]);
+
+  const handleRefreshDir = useCallback(async (path: string) => {
+    invalidate(path);
+    const node = findNode(treeData, path);
+    if (!node || !node.isDirectory || node.children === null) return;
+    try {
+      const children = await getOrFetch(path);
+      setTreeData(prev => updateNodeChildren(prev, path, children));
+    } catch (err) {
+      console.error('[FileTree] refreshChildren failed', path, err);
+    }
+  }, [treeData, getOrFetch, invalidate]);
 
   const handlePinDir = useCallback(async () => {
     const path = await pickDirectory();
@@ -221,7 +247,8 @@ export function FileTree({
 
   const normalizedActive = normalizePath(activeFile ?? '');
 
-  const menuItemClass = 'w-full text-left px-3 py-1 hover:bg-[var(--bg-divider)]';
+  const menuItemClass = 'w-full text-left px-3 py-1.5 text-xs text-[var(--text-secondary)] hover:bg-[var(--bg-divider)]';
+  const menuDangerItemClass = `${menuItemClass} text-[var(--accent-error)]`;
 
   return (
     <div className="flex flex-col h-full bg-[var(--bg-surface)]">
@@ -230,17 +257,19 @@ export function FileTree({
         <div className="flex items-center gap-1">
           <button
             onClick={onAddFiles}
-            className="flex items-center gap-1 text-xs text-[var(--text-muted)] hover:text-[var(--text-primary)] px-1 py-0.5 rounded hover:bg-[var(--bg-overlay)]"
+            className="p-1 rounded text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-overlay)]"
             title="Import files"
+            aria-label="Import files"
           >
-            <Plus size={12} /> File
+            <FilePlus size={14} />
           </button>
           <button
             onClick={handlePinDir}
-            className="flex items-center gap-1 text-xs text-[var(--text-muted)] hover:text-[var(--text-primary)] px-1 py-0.5 rounded hover:bg-[var(--bg-overlay)]"
-            title="Pin Directory"
+            className="p-1 rounded text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-overlay)]"
+            title="Pin directory"
+            aria-label="Pin directory"
           >
-            <Plus size={12} /> Dir
+            <FolderPlus size={14} />
           </button>
         </div>
       </div>
@@ -271,7 +300,7 @@ export function FileTree({
         </button>
 
         {filesPanelOpen && (
-          <div className="max-h-44 overflow-auto px-1 pb-1">
+          <div className="max-h-44 overflow-auto app-scrollbar px-1 pb-1">
             {filteredFiles.length === 0 ? (
               <div className="px-2 py-2 text-xs text-[var(--text-muted)]">No imported files.</div>
             ) : (
@@ -306,7 +335,7 @@ export function FileTree({
         )}
       </div>
 
-      <div ref={containerRef} className="flex-1 overflow-hidden">
+      <div ref={containerRef} className="flex-1 overflow-hidden app-scrollbar">
         {pinnedDirs.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-center px-4">
             <p className="text-[var(--text-muted)] text-sm">No folders pinned.</p>
@@ -355,16 +384,45 @@ export function FileTree({
           style={{ left: contextMenu.x, top: contextMenu.y }}
         >
           {contextMenu.kind === 'dir' && (
-            <button
-              className={menuItemClass}
-              style={{ color: 'var(--accent-error)' }}
-              onClick={() => {
-                onUnpinDir(contextMenu.path);
-                setContextMenu(null);
-              }}
-            >
-              Unpin Directory
-            </button>
+            <>
+              <button
+                className={menuItemClass}
+                onClick={() => {
+                  Promise.resolve(onCopyDirectoryPath(contextMenu.path)).finally(() => setContextMenu(null));
+                }}
+              >
+                Copy Directory Path
+              </button>
+              <button
+                className={menuItemClass}
+                onClick={() => {
+                  Promise.resolve(onOpenDirectory(contextMenu.path)).finally(() => setContextMenu(null));
+                }}
+              >
+                Open Directory
+              </button>
+              <button
+                className={menuItemClass}
+                onClick={() => {
+                  Promise.resolve(handleRefreshDir(contextMenu.path)).finally(() => setContextMenu(null));
+                }}
+              >
+                <span className="inline-flex items-center gap-1">
+                  <RefreshCw size={12} />
+                  Refresh Directory
+                </span>
+              </button>
+              <div className="my-1 border-t border-[var(--bg-divider)]" />
+              <button
+                className={menuDangerItemClass}
+                onClick={() => {
+                  onUnpinDir(contextMenu.path);
+                  setContextMenu(null);
+                }}
+              >
+                Unpin Directory
+              </button>
+            </>
           )}
 
           {contextMenu.kind === 'file' && (
@@ -389,8 +447,7 @@ export function FileTree({
               </button>
               <div className="my-1 border-t border-[var(--bg-divider)]" />
               <button
-                className={menuItemClass}
-                style={{ color: 'var(--accent-error)' }}
+                className={menuDangerItemClass}
                 onClick={() => {
                   Promise.resolve(onRemovePinnedFile(contextMenu.path)).finally(() => setContextMenu(null));
                 }}
@@ -398,8 +455,7 @@ export function FileTree({
                 Remove
               </button>
               <button
-                className={menuItemClass}
-                style={{ color: 'var(--accent-error)' }}
+                className={menuDangerItemClass}
                 onClick={() => {
                   Promise.resolve(onRemoveOtherPinnedFiles(contextMenu.path)).finally(() => setContextMenu(null));
                 }}
@@ -407,8 +463,7 @@ export function FileTree({
                 Remove Others
               </button>
               <button
-                className={menuItemClass}
-                style={{ color: 'var(--accent-warning)' }}
+                className={`${menuItemClass} text-[var(--accent-warning)]`}
                 onClick={() => {
                   Promise.resolve(onClearUnstarredFiles()).finally(() => setContextMenu(null));
                 }}
@@ -437,8 +492,7 @@ export function FileTree({
 
           {contextMenu.kind === 'files-panel' && (
             <button
-              className={menuItemClass}
-              style={{ color: 'var(--accent-warning)' }}
+              className={`${menuItemClass} text-[var(--accent-warning)]`}
               onClick={() => {
                 Promise.resolve(onClearUnstarredFiles()).finally(() => setContextMenu(null));
               }}

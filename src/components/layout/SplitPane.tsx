@@ -1,4 +1,4 @@
-import { ReactNode, useEffect, useRef } from 'react';
+﻿import { ReactNode, useEffect, useRef } from 'react';
 import { useSplitPane } from '../../hooks/useSplitPane';
 
 interface SplitPaneProps {
@@ -31,27 +31,46 @@ export function SplitPane({ syncScroll, left, right }: SplitPaneProps) {
     const previewScroller = rightPaneRef.current?.querySelector<HTMLElement>('.markdown-preview');
     if (!sourceScroller || !previewScroller) return;
 
-    let syncingFrom: 'source' | 'preview' | null = null;
+    let activeSource: 'source' | 'preview' | null = null;
+    let isProgrammaticSync = false;
+    let rafId: number | null = null;
+
+    const scheduleSync = (from: 'source' | 'preview') => {
+      activeSource = from;
+      if (rafId !== null) return;
+      rafId = requestAnimationFrame(() => {
+        rafId = null;
+        if (!activeSource) return;
+
+        isProgrammaticSync = true;
+        if (activeSource === 'source') {
+          setScrollRatio(previewScroller, getScrollRatio(sourceScroller));
+        } else {
+          setScrollRatio(sourceScroller, getScrollRatio(previewScroller));
+        }
+        isProgrammaticSync = false;
+        activeSource = null;
+      });
+    };
 
     const onSourceScroll = () => {
-      if (syncingFrom === 'preview') return;
-      syncingFrom = 'source';
-      setScrollRatio(previewScroller, getScrollRatio(sourceScroller));
-      syncingFrom = null;
+      if (isProgrammaticSync) return;
+      scheduleSync('source');
     };
 
     const onPreviewScroll = () => {
-      if (syncingFrom === 'source') return;
-      syncingFrom = 'preview';
-      setScrollRatio(sourceScroller, getScrollRatio(previewScroller));
-      syncingFrom = null;
+      if (isProgrammaticSync) return;
+      scheduleSync('preview');
     };
 
-    sourceScroller.addEventListener('scroll', onSourceScroll);
-    previewScroller.addEventListener('scroll', onPreviewScroll);
+    sourceScroller.addEventListener('scroll', onSourceScroll, { passive: true });
+    previewScroller.addEventListener('scroll', onPreviewScroll, { passive: true });
     return () => {
       sourceScroller.removeEventListener('scroll', onSourceScroll);
       previewScroller.removeEventListener('scroll', onPreviewScroll);
+      if (rafId !== null) {
+        cancelAnimationFrame(rafId);
+      }
     };
   }, [syncScroll]);
 
@@ -61,7 +80,6 @@ export function SplitPane({ syncScroll, left, right }: SplitPaneProps) {
         {left}
       </div>
 
-      {/* Divider */}
       <div
         className="relative flex-shrink-0 cursor-col-resize group"
         style={{ width: 5, background: 'var(--bg-divider)' }}
@@ -71,7 +89,6 @@ export function SplitPane({ syncScroll, left, right }: SplitPaneProps) {
         aria-label="Resize panes"
         role="separator"
       >
-        {/* Wider hit area */}
         <div className="absolute inset-y-0 -left-1 -right-1 group-hover:bg-[var(--accent-primary)] group-hover:opacity-20 transition-colors" />
       </div>
 

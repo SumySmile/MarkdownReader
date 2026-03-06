@@ -44,7 +44,7 @@ export function PreviewPane({ content, filePath, fileKind = 'markdown', theme = 
   if (fileKind === 'text') {
     return (
       <div
-        className="h-full overflow-auto px-8 py-6"
+        className="h-full overflow-auto app-scrollbar px-8 py-6"
         style={{ color: 'var(--text-primary)', backgroundColor: 'var(--bg-base)' }}
       >
         <pre
@@ -58,7 +58,7 @@ export function PreviewPane({ content, filePath, fileKind = 'markdown', theme = 
   }
 
   return (
-    <div className="h-full overflow-auto px-8 py-6 markdown-preview"
+    <div className="h-full overflow-auto app-scrollbar px-8 py-6 markdown-preview"
       style={{ color: 'var(--text-primary)', backgroundColor: 'var(--bg-base)' }}>
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}

@@ -5,17 +5,23 @@ A desktop Markdown editor based on Tauri + React + TypeScript.
 ## Features
 
 - Markdown-first editing and reading experience:
-  - Source mode (with optional split preview)
+  - Source mode
   - Preview mode
+  - Markdown files support optional split preview in Source mode (non-markdown files stay single-pane)
   - Markdown render pipeline with GFM + code highlighting + relative image support
+  - Sync scroll toggle is available only when Markdown split view is enabled
 - Sidebar supports both:
   - Folder explorer (for openable files in pinned directories).
   - File panel (imported files list, independent from folder tree).
+- Pinned directory safety:
+  - Directories with no openable files are skipped when pinning.
+  - Stored pinned directories are re-validated on startup and invalid ones are removed.
 - File panel capabilities:
-  - Import single or multiple files (`+ File` / `Ctrl+O`).
+  - Import single or multiple files (toolbar icon / `Ctrl+O`).
   - Collapse/expand panel (default expanded).
   - Star files and pin starred files to top.
   - Right-click file: open / star / remove / copy path / open containing folder.
+  - Right-click pinned directory: copy path / open directory / refresh / unpin.
   - Right-click Files header: clear unstarred files.
 - AI-skill oriented file support:
   - Editable whitelist includes common markdown/code/config/script files such as:
@@ -26,6 +32,7 @@ A desktop Markdown editor based on Tauri + React + TypeScript.
   - Files larger than `1MB` open as preview-only to avoid editor lag.
 - Source editor syntax highlighting:
   - Language is selected by file extension (e.g. `.py`, `.ts`, `.tsx`, `.js`, `.json`, `.yaml`, `.sh`, `.ps1`).
+  - Includes default fallback highlighting so non-markdown code files keep visible syntax colors.
   - Unknown file types fall back to plain text highlighting.
 - Supports opening markdown file directly via OS file association (after installer install).
 - Launcher scripts:

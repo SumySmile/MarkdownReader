@@ -1,7 +1,6 @@
 ﻿import { FileTree } from '../file-tree/FileTree';
 import { SourceEditor } from '../editor/SourceEditor';
 import { PreviewPane } from '../editor/PreviewPane';
-import { WysiwygEditor, WysiwygEditorHandle } from '../editor/WysiwygEditor';
 import { SplitPane } from './SplitPane';
 import { Toolbar, EditorMode, Theme } from './Toolbar';
 import { ErrorBoundary } from '../ErrorBoundary';
@@ -22,14 +21,15 @@ interface AppLayoutProps {
   onRemoveOtherPinnedFiles: (path: string) => Promise<void> | void;
   onClearUnstarredFiles: () => Promise<void> | void;
   onCopyFullPath: (path: string) => Promise<void> | void;
+  onCopyDirectoryPath: (path: string) => Promise<void> | void;
   onOpenContainingFolder: (path: string) => Promise<void> | void;
+  onOpenDirectory: (path: string) => Promise<void> | void;
   activeFile: string | null;
   activeFileKind: FileKind | null;
   activeFileEditable: boolean;
   readonlyReason: string | null;
   content: string;
   saveState: SaveState;
-  isDirty: boolean;
   mode: EditorMode;
   sourceSplitEnabled: boolean;
   theme: Theme;
@@ -41,7 +41,6 @@ interface AppLayoutProps {
   onThemeToggle: () => void;
   onToggleSyncScroll: () => void;
   onSave: () => void;
-  wysiwygRef: React.RefObject<WysiwygEditorHandle | null>;
 }
 
 function WelcomeCard() {
@@ -73,14 +72,15 @@ export function AppLayout({
   onRemoveOtherPinnedFiles,
   onClearUnstarredFiles,
   onCopyFullPath,
+  onCopyDirectoryPath,
   onOpenContainingFolder,
+  onOpenDirectory,
   activeFile,
   activeFileKind,
   activeFileEditable,
   readonlyReason,
   content,
   saveState,
-  isDirty,
   mode,
   sourceSplitEnabled,
   theme,
@@ -92,32 +92,25 @@ export function AppLayout({
   onThemeToggle,
   onToggleSyncScroll,
   onSave,
-  wysiwygRef,
 }: AppLayoutProps) {
   const previewKind: FileKind = activeFileKind ?? 'markdown';
+  const isMarkdownFile = previewKind === 'markdown';
+  const enableSplitPane = mode === 'source' && isMarkdownFile && sourceSplitEnabled;
 
   const editorArea = activeFile ? (
-    <>
-      <div className="flex flex-col h-full">
-        {mode === 'source' && sourceSplitEnabled ? (
-          <SplitPane
-            syncScroll={syncScroll}
-            left={<SourceEditor content={content} onChange={onContentChange} filePath={activeFile} readOnly={!activeFileEditable} />}
-            right={<PreviewPane content={content} filePath={activeFile} fileKind={previewKind} theme={theme} />}
-          />
-        ) : mode === 'source' ? (
-          <SourceEditor content={content} onChange={onContentChange} filePath={activeFile} readOnly={!activeFileEditable} />
-        ) : (
-          <PreviewPane content={content} filePath={activeFile} fileKind={previewKind} theme={theme} />
-        )}
-      </div>
-
-      <div style={{ display: 'none' }}>
-        <ErrorBoundary fallback={null}>
-          <WysiwygEditor ref={wysiwygRef} content={content} onChange={onContentChange} />
-        </ErrorBoundary>
-      </div>
-    </>
+    <div className="flex flex-col h-full">
+      {enableSplitPane ? (
+        <SplitPane
+          syncScroll={syncScroll}
+          left={<SourceEditor content={content} onChange={onContentChange} filePath={activeFile} readOnly={!activeFileEditable} />}
+          right={<PreviewPane content={content} filePath={activeFile} fileKind={previewKind} theme={theme} />}
+        />
+      ) : mode === 'source' ? (
+        <SourceEditor content={content} onChange={onContentChange} filePath={activeFile} readOnly={!activeFileEditable} />
+      ) : (
+        <PreviewPane content={content} filePath={activeFile} fileKind={previewKind} theme={theme} />
+      )}
+    </div>
   ) : (
     <WelcomeCard />
   );
@@ -142,7 +135,9 @@ export function AppLayout({
             onRemoveOtherPinnedFiles={onRemoveOtherPinnedFiles}
             onClearUnstarredFiles={onClearUnstarredFiles}
             onCopyFullPath={onCopyFullPath}
+            onCopyDirectoryPath={onCopyDirectoryPath}
             onOpenContainingFolder={onOpenContainingFolder}
+            onOpenDirectory={onOpenDirectory}
             onSelectFile={onSelectFile}
             activeFile={activeFile}
           />
@@ -153,6 +148,7 @@ export function AppLayout({
         <Toolbar
           mode={mode}
           onModeChange={onModeChange}
+          isMarkdownFile={isMarkdownFile}
           sourceSplitEnabled={sourceSplitEnabled}
           onToggleSourceSplit={onToggleSourceSplit}
           isEditable={activeFileEditable}
@@ -162,7 +158,6 @@ export function AppLayout({
           syncScroll={syncScroll}
           onToggleSyncScroll={onToggleSyncScroll}
           saveState={saveState}
-          isDirty={isDirty}
           onSave={onSave}
           fileName={activeFile}
         />

@@ -1,5 +1,5 @@
 ﻿import { useEffect } from 'react';
-import { Code2, Columns2, Eye, Moon, Cherry, Leaf, Save, Circle, Link2, Unlink2 } from 'lucide-react';
+import { Code2, Columns2, Eye, Moon, Cherry, Leaf, Save, Circle, Link2, Unlink2, Square } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { SaveState } from '../../hooks/useActiveFile';
 
@@ -9,6 +9,7 @@ export type Theme = 'dark' | 'light' | 'mint' | 'gray';
 interface ToolbarProps {
   mode: EditorMode;
   onModeChange: (mode: EditorMode) => void;
+  isMarkdownFile: boolean;
   sourceSplitEnabled: boolean;
   onToggleSourceSplit: () => void;
   isEditable: boolean;
@@ -18,7 +19,6 @@ interface ToolbarProps {
   syncScroll: boolean;
   onToggleSyncScroll: () => void;
   saveState: SaveState;
-  isDirty: boolean;
   onSave: () => void;
   fileName: string | null;
 }
@@ -56,12 +56,13 @@ const THEME_TEXT: Record<Theme, string> = {
   dark: 'Dark',
   mint: 'Mint',
   light: 'Rose',
-  gray: 'Soft Gray',
+  gray: 'Gray',
 };
 
 export function Toolbar({
   mode,
   onModeChange,
+  isMarkdownFile,
   sourceSplitEnabled,
   onToggleSourceSplit,
   isEditable,
@@ -71,11 +72,12 @@ export function Toolbar({
   syncScroll,
   onToggleSyncScroll,
   saveState,
-  isDirty,
   onSave,
   fileName,
 }: ToolbarProps) {
   const sourceDisabled = !isEditable;
+  const showSplitToggle = mode === 'source' && isMarkdownFile;
+  const showSyncToggle = showSplitToggle && sourceSplitEnabled;
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -102,19 +104,16 @@ export function Toolbar({
 
   return (
     <div
-      className="flex items-center justify-between px-3 py-1.5 border-b"
+      className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3 px-3 py-1.5 border-b"
       style={{ borderColor: 'var(--bg-divider)', backgroundColor: 'var(--bg-surface)' }}
     >
-      <div className="flex items-center gap-2 min-w-0">
-        {isDirty && (
-          <span style={{ color: 'var(--accent-warning)', fontSize: 18, lineHeight: 1 }}>•</span>
-        )}
+      <div className="min-w-0">
         <span className="text-sm truncate" style={{ color: 'var(--text-secondary)' }}>
           {fileName ? fileName.split(/[\\/]/).pop() : 'No file open'}
         </span>
       </div>
 
-      <div className="flex items-center gap-0.5 rounded p-0.5" style={{ backgroundColor: 'var(--bg-overlay)' }}>
+      <div className="justify-self-center flex items-center gap-0.5 rounded p-0.5" style={{ backgroundColor: 'var(--bg-overlay)' }}>
         {modes.map(({ id, icon: Icon, label }) => {
           const disabled = id === 'source' ? sourceDisabled : false;
           return (
@@ -140,47 +139,51 @@ export function Toolbar({
         })}
       </div>
 
-      {mode === 'source' && (
-        <button
-          onClick={onToggleSourceSplit}
-          title={sourceSplitEnabled ? 'Disable split view' : 'Enable split view'}
-          className="flex items-center gap-1 px-2 py-1 rounded text-xs"
-          style={{ color: 'var(--text-secondary)', backgroundColor: 'var(--bg-overlay)' }}
-        >
-          <Columns2 size={13} />
-          <span>{sourceSplitEnabled ? 'Split On' : 'Split Off'}</span>
-        </button>
-      )}
-
-      <div className="flex items-center gap-2">
+      <div className="justify-self-end flex items-center gap-2">
         {readonlyReason && (
           <span className="text-xs" style={{ color: 'var(--accent-warning)' }}>
             {readonlyReason}
           </span>
         )}
-        {!readonlyReason && saveState !== 'clean' && (
-          <span className="text-xs" style={{ color: SAVE_STATE_COLOR[saveState] }}>
-            {SAVE_STATE_LABEL[saveState]}
-          </span>
+        {showSyncToggle && (
+          <button
+            onClick={onToggleSyncScroll}
+            title={syncScroll ? 'Disable sync scroll' : 'Enable sync scroll'}
+            aria-label={syncScroll ? 'Disable sync scroll' : 'Enable sync scroll'}
+            className="p-1.5 rounded hover:bg-[var(--bg-overlay)]"
+            style={{ color: 'var(--text-secondary)' }}
+          >
+            {syncScroll ? <Link2 size={14} /> : <Unlink2 size={14} />}
+          </button>
         )}
-        <button
-          onClick={onToggleSyncScroll}
-          title={syncScroll ? 'Disable sync scroll' : 'Enable sync scroll'}
-          className="flex items-center gap-1 px-2 py-1 rounded text-xs"
-          style={{ color: 'var(--text-secondary)', backgroundColor: 'var(--bg-overlay)' }}
-        >
-          {syncScroll ? <Link2 size={13} /> : <Unlink2 size={13} />}
-          <span>{syncScroll ? 'Sync On' : 'Sync Off'}</span>
-        </button>
-        <button
-          onClick={() => isEditable && onSave()}
-          title={isEditable ? 'Save (Ctrl+S)' : 'Read-only file'}
-          disabled={!isEditable}
-          className="p-1 rounded"
-          style={{ color: 'var(--text-muted)', opacity: isEditable ? 1 : 0.45 }}
-        >
-          <Save size={14} />
-        </button>
+        {showSplitToggle && (
+          <button
+            onClick={onToggleSourceSplit}
+            title={sourceSplitEnabled ? 'Disable split view' : 'Enable split view'}
+            aria-label={sourceSplitEnabled ? 'Disable split view' : 'Enable split view'}
+            className="p-1.5 rounded hover:bg-[var(--bg-overlay)]"
+            style={{ color: 'var(--text-secondary)' }}
+          >
+            {sourceSplitEnabled ? <Columns2 size={14} /> : <Square size={14} />}
+          </button>
+        )}
+        <div className="w-16 text-right">
+          {!readonlyReason && saveState !== 'clean' ? (
+            <span className="text-xs" style={{ color: SAVE_STATE_COLOR[saveState] }}>
+              {SAVE_STATE_LABEL[saveState]}
+            </span>
+          ) : (
+            <button
+              onClick={() => isEditable && onSave()}
+              title={isEditable ? 'Save (Ctrl+S)' : 'Read-only file'}
+              disabled={!isEditable}
+              className="p-1 rounded hover:bg-[var(--bg-overlay)]"
+              style={{ color: 'var(--text-muted)', opacity: isEditable ? 1 : 0.45 }}
+            >
+              <Save size={14} />
+            </button>
+          )}
+        </div>
         <button
           onClick={onThemeToggle}
           title="Switch theme"

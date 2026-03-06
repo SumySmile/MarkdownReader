@@ -2,7 +2,7 @@ import { readDir, watch } from '@tauri-apps/plugin-fs';
 import { open } from '@tauri-apps/plugin-dialog';
 import { openPath } from '@tauri-apps/plugin-opener';
 import { invoke } from '@tauri-apps/api/core';
-import { getOpenableExtensions } from './markdown';
+import { getOpenableExtensions, isOpenablePath } from './markdown';
 
 export interface DirEntry {
   name: string;
@@ -48,6 +48,39 @@ export async function openContainingFolder(filePath: string): Promise<void> {
   const slashIndex = normalized.lastIndexOf('/');
   const folder = slashIndex > 0 ? normalized.slice(0, slashIndex) : normalized;
   await openPath(folder);
+}
+
+export async function openDirectory(path: string): Promise<void> {
+  await openPath(path.replace(/\\/g, '/'));
+}
+
+export async function hasOpenableFilesInDirectory(path: string): Promise<boolean> {
+  const stack: string[] = [path.replace(/\\/g, '/')];
+  const visited = new Set<string>();
+
+  while (stack.length > 0) {
+    const current = stack.pop();
+    if (!current || visited.has(current)) continue;
+    visited.add(current);
+
+    let entries: DirEntry[];
+    try {
+      entries = await listDirSorted(current);
+    } catch {
+      continue;
+    }
+
+    for (const entry of entries) {
+      const normalized = entry.path.replace(/\\/g, '/');
+      if (entry.is_dir) {
+        if (!visited.has(normalized)) stack.push(normalized);
+      } else if (isOpenablePath(normalized)) {
+        return true;
+      }
+    }
+  }
+
+  return false;
 }
 
 export async function getLaunchArgs(): Promise<string[]> {

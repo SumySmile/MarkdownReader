@@ -1,10 +1,9 @@
 ﻿import { useEffect, useRef, useState, useCallback } from 'react';
 import { AppLayout } from './components/layout/AppLayout';
-import { WysiwygEditorHandle } from './components/editor/WysiwygEditor';
 import { useActiveFile } from './hooks/useActiveFile';
 import { useFileWatcher } from './hooks/useFileWatcher';
 import { storeGet, storeSet } from './lib/store';
-import { getLaunchArgs, openContainingFolder, pickOpenableTextFiles, readFile } from './lib/fs';
+import { getLaunchArgs, hasOpenableFilesInDirectory, openContainingFolder, openDirectory, pickOpenableTextFiles, readFile } from './lib/fs';
 import { getFileKind, isEditablePath, isOpenablePath, isReadonlyPreviewPath, type FileKind } from './lib/markdown';
 import type { EditorMode, Theme } from './components/layout/Toolbar';
 import { THEME_NEXT } from './components/layout/Toolbar';
@@ -29,6 +28,12 @@ function mergeUniquePaths(existing: string[], incoming: string[]): string[] {
 function removePathCaseInsensitive(paths: string[], target: string): string[] {
   const lower = target.toLowerCase();
   return paths.filter(item => item.toLowerCase() !== lower);
+}
+
+async function filterValidPinnedDirs(paths: string[]): Promise<string[]> {
+  const normalized = paths.map(normalizePath);
+  const checks = await Promise.all(normalized.map(path => hasOpenableFilesInDirectory(path)));
+  return normalized.filter((_, idx) => checks[idx]);
 }
 
 const MAX_EDITABLE_BYTES = 1 * 1024 * 1024;
@@ -57,10 +62,9 @@ function App() {
   const [activeFileKind, setActiveFileKind] = useState<FileKind | null>(null);
   const [activeFileEditable, setActiveFileEditable] = useState<boolean>(true);
   const [readonlyReason, setReadonlyReason] = useState<string | null>(null);
-  const wysiwygRef = useRef<WysiwygEditorHandle | null>(null);
   const activeFilePathRef = useRef<string | null>(null);
   const activeContentRef = useRef('');
-  const { filePath, content, saveState, isDirty, isSelfWritingRef, openFile, handleChange, saveNow } = useActiveFile();
+  const { filePath, content, saveState, isSelfWritingRef, openFile, handleChange, saveNow } = useActiveFile();
 
   useEffect(() => {
     activeFilePathRef.current = filePath;
@@ -91,7 +95,13 @@ function App() {
   useEffect(() => {
     async function restore() {
       const dirs = await storeGet<string[]>('pinnedDirs');
-      if (dirs?.length) setPinnedDirs(dirs.map(normalizePath));
+      if (dirs?.length) {
+        const validDirs = await filterValidPinnedDirs(dirs);
+        setPinnedDirs(validDirs);
+        if (validDirs.length !== dirs.length) {
+          await storeSet('pinnedDirs', validDirs);
+        }
+      }
 
       const files = await storeGet<string[]>('pinnedFiles');
       if (files?.length) setPinnedFiles(files.map(normalizePath));
@@ -207,6 +217,11 @@ function App() {
 
   const handlePinDir = async (path: string) => {
     const normalized = normalizePath(path);
+    const hasOpenable = await hasOpenableFilesInDirectory(normalized);
+    if (!hasOpenable) {
+      console.info('[App] skip pinning directory without openable files', normalized);
+      return;
+    }
     const next = pinnedDirs.includes(normalized) ? pinnedDirs : [...pinnedDirs, normalized];
     setPinnedDirs(next);
     await storeSet('pinnedDirs', next);
@@ -323,11 +338,23 @@ function App() {
     }
   };
 
+  const handleCopyDirectoryPath = async (path: string) => {
+    await handleCopyFullPath(path);
+  };
+
   const handleOpenContainingFolder = async (path: string) => {
     try {
       await openContainingFolder(normalizePath(path));
     } catch (error) {
       console.error('[App] open containing folder failed', error);
+    }
+  };
+
+  const handleOpenDirectory = async (path: string) => {
+    try {
+      await openDirectory(normalizePath(path));
+    } catch (error) {
+      console.error('[App] open directory failed', error);
     }
   };
 
@@ -356,14 +383,15 @@ function App() {
       onRemoveOtherPinnedFiles={handleRemoveOtherPinnedFiles}
       onClearUnstarredFiles={handleClearUnstarredFiles}
       onCopyFullPath={handleCopyFullPath}
+      onCopyDirectoryPath={handleCopyDirectoryPath}
       onOpenContainingFolder={handleOpenContainingFolder}
+      onOpenDirectory={handleOpenDirectory}
       activeFile={filePath}
       activeFileKind={activeFileKind}
       activeFileEditable={activeFileEditable}
       readonlyReason={readonlyReason}
       content={content}
       saveState={saveState}
-      isDirty={isDirty}
       mode={mode}
       sourceSplitEnabled={sourceSplitEnabled}
       theme={theme}
@@ -375,9 +403,9 @@ function App() {
       onThemeToggle={handleThemeToggle}
       onToggleSyncScroll={handleToggleSyncScroll}
       onSave={handleSave}
-      wysiwygRef={wysiwygRef}
     />
   );
 }
 
 export default App;
+
