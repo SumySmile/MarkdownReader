@@ -1,25 +1,42 @@
-import { useEffect, useRef, useState } from 'react';
+﻿import { useEffect, useRef, useState } from 'react';
 import { AppLayout } from './components/layout/AppLayout';
 import { WysiwygEditorHandle } from './components/editor/WysiwygEditor';
 import { useActiveFile } from './hooks/useActiveFile';
 import { useFileWatcher } from './hooks/useFileWatcher';
 import { storeGet, storeSet } from './lib/store';
-import { readFile } from './lib/fs';
+import { getLaunchArgs, pickMarkdownFiles, readFile } from './lib/fs';
+import { isMarkdownPath } from './lib/markdown';
 import type { EditorMode, Theme } from './components/layout/Toolbar';
 import { THEME_NEXT } from './components/layout/Toolbar';
 
+function normalizePath(path: string): string {
+  return path.replace(/\\/g, '/');
+}
+
 function App() {
   const [pinnedDirs, setPinnedDirs] = useState<string[]>([]);
+  const [pinnedFiles, setPinnedFiles] = useState<string[]>([]);
+  const [starredFiles, setStarredFiles] = useState<string[]>([]);
+  const [filesPanelOpen, setFilesPanelOpen] = useState<boolean>(true);
   const [mode, setMode] = useState<EditorMode>('split');
-  const [theme, setTheme] = useState<Theme>('dark');
+  const [theme, setTheme] = useState<Theme>('gray');
+  const [syncScroll, setSyncScroll] = useState<boolean>(true);
   const wysiwygRef = useRef<WysiwygEditorHandle | null>(null);
   const { filePath, content, saveState, isDirty, isSelfWritingRef, openFile, handleChange, saveNow } = useActiveFile();
 
-  // Restore persisted state on startup
   useEffect(() => {
     async function restore() {
       const dirs = await storeGet<string[]>('pinnedDirs');
-      if (dirs?.length) setPinnedDirs(dirs);
+      if (dirs?.length) setPinnedDirs(dirs.map(normalizePath));
+
+      const files = await storeGet<string[]>('pinnedFiles');
+      if (files?.length) setPinnedFiles(files.map(normalizePath));
+
+      const stars = await storeGet<string[]>('starredFiles');
+      if (stars?.length) setStarredFiles(stars.map(normalizePath));
+
+      const savedFilesPanelOpen = await storeGet<boolean>('filesPanelOpen');
+      if (typeof savedFilesPanelOpen === 'boolean') setFilesPanelOpen(savedFilesPanelOpen);
 
       const savedMode = await storeGet<EditorMode>('editorMode');
       if (savedMode) setMode(savedMode);
@@ -27,23 +44,45 @@ function App() {
       const savedTheme = await storeGet<Theme>('theme');
       if (savedTheme) setTheme(savedTheme);
 
+      const savedSyncScroll = await storeGet<boolean>('syncScroll');
+      if (typeof savedSyncScroll === 'boolean') setSyncScroll(savedSyncScroll);
+
+      const args = await getLaunchArgs();
+      const launchPath = args.map(normalizePath).find(arg => isMarkdownPath(arg));
+      if (launchPath) {
+        try {
+          await openFile(launchPath);
+          setPinnedFiles(prev => {
+            if (prev.includes(launchPath)) return prev;
+            const next = [...prev, launchPath];
+            storeSet('pinnedFiles', next);
+            return next;
+          });
+          return;
+        } catch {
+          // ignore invalid launch argument
+        }
+      }
+
       const lastFile = await storeGet<string>('lastOpenedFile');
       if (lastFile) {
         try {
-          await openFile(lastFile);
-        } catch { /* file no longer exists */ }
+          await openFile(normalizePath(lastFile));
+        } catch {
+          // file no longer exists
+        }
       }
     }
     restore();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Apply theme to document
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
   }, [theme]);
 
-  // File watcher for external changes
-  const watchDir = filePath ? filePath.substring(0, filePath.lastIndexOf('/')) : null;
+  const watchDir = filePath
+    ? filePath.replace(/\\/g, '/').substring(0, filePath.replace(/\\/g, '/').lastIndexOf('/'))
+    : null;
   useFileWatcher(watchDir, filePath, isSelfWritingRef, () => {
     if (!filePath) return;
     readFile(filePath).then(text => {
@@ -53,9 +92,21 @@ function App() {
     }).catch(console.error);
   });
 
-  // Keyboard shortcut: Ctrl+F → focus search
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
+      if (e.ctrlKey && e.key.toLowerCase() === 'o') {
+        e.preventDefault();
+        pickMarkdownFiles().then(async paths => {
+          if (!paths.length) return;
+          const normalized = paths.map(normalizePath);
+          setPinnedFiles(prev => {
+            const merged = Array.from(new Set([...prev, ...normalized]));
+            storeSet('pinnedFiles', merged);
+            return merged;
+          });
+          await openFile(normalized[0]);
+        }).catch(console.error);
+      }
       if (e.ctrlKey && e.key === 'f') {
         e.preventDefault();
         document.querySelector<HTMLInputElement>('input[placeholder="Filter files..."]')?.focus();
@@ -63,16 +114,18 @@ function App() {
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, []);
+  }, [openFile]);
 
   const handlePinDir = async (path: string) => {
-    const next = pinnedDirs.includes(path) ? pinnedDirs : [...pinnedDirs, path];
+    const normalized = normalizePath(path);
+    const next = pinnedDirs.includes(normalized) ? pinnedDirs : [...pinnedDirs, normalized];
     setPinnedDirs(next);
     await storeSet('pinnedDirs', next);
   };
 
   const handleUnpinDir = async (path: string) => {
-    const next = pinnedDirs.filter(d => d !== path);
+    const normalized = normalizePath(path);
+    const next = pinnedDirs.filter(d => d !== normalized);
     setPinnedDirs(next);
     await storeSet('pinnedDirs', next);
   };
@@ -88,21 +141,60 @@ function App() {
     await storeSet('theme', next);
   };
 
+  const handleToggleSyncScroll = async () => {
+    const next = !syncScroll;
+    setSyncScroll(next);
+    await storeSet('syncScroll', next);
+  };
+
+  const handleAddFiles = async () => {
+    const selected = await pickMarkdownFiles();
+    if (!selected.length) return;
+    const normalized = selected.map(normalizePath);
+    const merged = Array.from(new Set([...pinnedFiles, ...normalized]));
+    setPinnedFiles(merged);
+    await storeSet('pinnedFiles', merged);
+    await openFile(normalized[0]);
+  };
+
+  const handleToggleFileStar = async (path: string) => {
+    const normalized = normalizePath(path);
+    const next = starredFiles.includes(normalized)
+      ? starredFiles.filter(p => p !== normalized)
+      : [...starredFiles, normalized];
+    setStarredFiles(next);
+    await storeSet('starredFiles', next);
+  };
+
+  const handleToggleFilesPanel = async () => {
+    const next = !filesPanelOpen;
+    setFilesPanelOpen(next);
+    await storeSet('filesPanelOpen', next);
+  };
+
   return (
     <AppLayout
       pinnedDirs={pinnedDirs}
+      pinnedFiles={pinnedFiles}
+      starredFiles={starredFiles}
+      filesPanelOpen={filesPanelOpen}
       onPinDir={handlePinDir}
       onUnpinDir={handleUnpinDir}
+      onAddFiles={handleAddFiles}
+      onToggleFileStar={handleToggleFileStar}
+      onToggleFilesPanel={handleToggleFilesPanel}
       activeFile={filePath}
       content={content}
       saveState={saveState}
       isDirty={isDirty}
       mode={mode}
       theme={theme}
+      syncScroll={syncScroll}
       onSelectFile={openFile}
       onContentChange={handleChange}
       onModeChange={handleModeChange}
       onThemeToggle={handleThemeToggle}
+      onToggleSyncScroll={handleToggleSyncScroll}
       onSave={saveNow}
       wysiwygRef={wysiwygRef}
     />

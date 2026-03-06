@@ -9,18 +9,26 @@ import { SaveState } from '../../hooks/useActiveFile';
 
 interface AppLayoutProps {
   pinnedDirs: string[];
+  pinnedFiles: string[];
+  starredFiles: string[];
+  filesPanelOpen: boolean;
   onPinDir: (path: string) => void;
   onUnpinDir: (path: string) => void;
+  onAddFiles: () => Promise<void> | void;
+  onToggleFileStar: (path: string) => void;
+  onToggleFilesPanel: () => void;
   activeFile: string | null;
   content: string;
   saveState: SaveState;
   isDirty: boolean;
   mode: EditorMode;
   theme: Theme;
-  onSelectFile: (path: string) => void;
+  syncScroll: boolean;
+  onSelectFile: (path: string) => Promise<void> | void;
   onContentChange: (text: string) => void;
   onModeChange: (mode: EditorMode) => void;
   onThemeToggle: () => void;
+  onToggleSyncScroll: () => void;
   onSave: () => void;
   wysiwygRef: React.RefObject<WysiwygEditorHandle | null>;
 }
@@ -41,8 +49,8 @@ function WelcomeCard() {
 }
 
 export function AppLayout({
-  pinnedDirs, onPinDir, onUnpinDir, activeFile, content, saveState, isDirty,
-  mode, theme, onSelectFile, onContentChange, onModeChange, onThemeToggle, onSave, wysiwygRef,
+  pinnedDirs, pinnedFiles, starredFiles, filesPanelOpen, onPinDir, onUnpinDir, onAddFiles, onToggleFileStar, onToggleFilesPanel, activeFile, content, saveState, isDirty,
+  mode, theme, syncScroll, onSelectFile, onContentChange, onModeChange, onThemeToggle, onToggleSyncScroll, onSave, wysiwygRef,
 }: AppLayoutProps) {
   const editorArea = activeFile ? (
     <>
@@ -50,6 +58,7 @@ export function AppLayout({
       <div style={{ display: (mode !== 'source' && mode !== 'split' && mode !== 'preview') ? 'none' : undefined }} className="flex flex-col h-full">
         {mode === 'split' ? (
           <SplitPane
+            syncScroll={syncScroll}
             left={<SourceEditor content={content} onChange={onContentChange} />}
             right={<PreviewPane content={content} filePath={activeFile} theme={theme} />}
           />
@@ -80,8 +89,14 @@ export function AppLayout({
         }>
           <FileTree
             pinnedDirs={pinnedDirs}
+            pinnedFiles={pinnedFiles}
+            starredFiles={starredFiles}
+            filesPanelOpen={filesPanelOpen}
             onPinDir={onPinDir}
             onUnpinDir={onUnpinDir}
+            onAddFiles={onAddFiles}
+            onToggleFileStar={onToggleFileStar}
+            onToggleFilesPanel={onToggleFilesPanel}
             onSelectFile={onSelectFile}
             activeFile={activeFile}
           />
@@ -95,6 +110,8 @@ export function AppLayout({
           onModeChange={onModeChange}
           theme={theme}
           onThemeToggle={onThemeToggle}
+          syncScroll={syncScroll}
+          onToggleSyncScroll={onToggleSyncScroll}
           saveState={saveState}
           isDirty={isDirty}
           onSave={onSave}

@@ -1,21 +1,27 @@
-import { useEffect, useRef, useState, useCallback } from 'react';
+﻿import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { Tree, NodeApi, NodeRendererProps } from 'react-arborist';
 import { useFileTreeStore, TreeNode, DirectoryNode } from '../../stores/fileTreeStore';
 import { pickDirectory } from '../../lib/fs';
-import { ChevronRight, ChevronDown, File, Folder, FolderOpen, Plus } from 'lucide-react';
+import { ChevronRight, ChevronDown, File, Folder, FolderOpen, Plus, Star, StarOff } from 'lucide-react';
 import { cn } from '../../lib/utils';
+import { isMarkdownPath } from '../../lib/markdown';
 
 interface FileTreeProps {
   pinnedDirs: string[];
+  pinnedFiles: string[];
+  starredFiles: string[];
+  filesPanelOpen: boolean;
   onPinDir: (path: string) => void;
   onUnpinDir: (path: string) => void;
-  onSelectFile: (path: string) => void;
+  onAddFiles: () => Promise<void> | void;
+  onToggleFileStar: (path: string) => void;
+  onToggleFilesPanel: () => void;
+  onSelectFile: (path: string) => Promise<void> | void;
   activeFile?: string | null;
 }
 
 function NodeRow({ node, style }: NodeRendererProps<TreeNode>) {
   const isDir = node.data.isDirectory;
-  const isMd = !isDir && node.data.name.endsWith('.md');
   const isOpen = node.isOpen;
 
   const Icon = isDir ? (isOpen ? FolderOpen : Folder) : File;
@@ -27,7 +33,6 @@ function NodeRow({ node, style }: NodeRendererProps<TreeNode>) {
         'flex items-center gap-1 px-2 py-0.5 rounded cursor-pointer select-none text-sm',
         'hover:bg-[var(--bg-overlay)]',
         node.isSelected && 'bg-[var(--bg-overlay)]',
-        !isMd && !isDir && 'opacity-40 pointer-events-none',
       )}
       onClick={() => { if (isDir) node.toggle(); }}
     >
@@ -42,7 +47,6 @@ function NodeRow({ node, style }: NodeRendererProps<TreeNode>) {
   );
 }
 
-// Find a node by path in the tree (recursive)
 function updateNodeChildren(nodes: TreeNode[], path: string, children: TreeNode[]): TreeNode[] {
   return nodes.map(node => {
     if (node.path === path && node.isDirectory) {
@@ -66,17 +70,27 @@ function findNode(nodes: TreeNode[], path: string): TreeNode | null {
   return null;
 }
 
-export function FileTree({ pinnedDirs, onPinDir, onUnpinDir, onSelectFile }: FileTreeProps) {
+export function FileTree({
+  pinnedDirs,
+  pinnedFiles,
+  starredFiles,
+  filesPanelOpen,
+  onPinDir,
+  onUnpinDir,
+  onAddFiles,
+  onToggleFileStar,
+  onToggleFilesPanel,
+  onSelectFile,
+  activeFile,
+}: FileTreeProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [height, setHeight] = useState(400);
   const { getOrFetch } = useFileTreeStore();
   const [searchQuery, setSearchQuery] = useState('');
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; path: string } | null>(null);
 
-  // Tree data: roots with their loaded children
   const [treeData, setTreeData] = useState<TreeNode[]>([]);
 
-  // Initialize root nodes from pinnedDirs
   useEffect(() => {
     setTreeData(prev => {
       const existing = new Map(prev.map(n => [n.path, n]));
@@ -88,13 +102,12 @@ export function FileTree({ pinnedDirs, onPinDir, onUnpinDir, onSelectFile }: Fil
           name: dir.replace(/\\/g, '/').split('/').filter(Boolean).pop() ?? dir,
           path: dir,
           isDirectory: true,
-          children: [], // empty = expandable but not loaded
+          children: null,
         } as DirectoryNode;
       });
     });
   }, [pinnedDirs]);
 
-  // ResizeObserver with rAF
   useEffect(() => {
     if (!containerRef.current) return;
     let rafId: number;
@@ -107,10 +120,9 @@ export function FileTree({ pinnedDirs, onPinDir, onUnpinDir, onSelectFile }: Fil
     return () => { ro.disconnect(); cancelAnimationFrame(rafId); };
   }, []);
 
-  // Load children on toggle (lazy loading)
   const handleToggle = useCallback(async (id: string) => {
     const node = findNode(treeData, id);
-    if (!node || !node.isDirectory || node.children?.length) return;
+    if (!node || !node.isDirectory || node.children !== null) return;
     try {
       const children = await getOrFetch(id);
       setTreeData(prev => updateNodeChildren(prev, id, children));
@@ -124,14 +136,19 @@ export function FileTree({ pinnedDirs, onPinDir, onUnpinDir, onSelectFile }: Fil
     if (path) onPinDir(path.replace(/\\/g, '/'));
   }, [onPinDir]);
 
-  const handleSelect = useCallback((nodes: NodeApi<TreeNode>[]) => {
-    const node = nodes[0];
-    if (node && !node.data.isDirectory && node.data.name.endsWith('.md')) {
-      onSelectFile(node.data.path);
-    }
+  const openMarkdownFile = useCallback((path: string) => {
+    Promise.resolve(onSelectFile(path)).catch(err => {
+      console.error('[FileTree] open file failed', path, err);
+    });
   }, [onSelectFile]);
 
-  // Context menu
+  const handleSelect = useCallback((nodes: NodeApi<TreeNode>[]) => {
+    const node = nodes[0];
+    if (node && !node.data.isDirectory && isMarkdownPath(node.data.path)) {
+      openMarkdownFile(node.data.path);
+    }
+  }, [openMarkdownFile]);
+
   const closeContextMenu = useCallback(() => setContextMenu(null), []);
   useEffect(() => {
     if (contextMenu) {
@@ -141,25 +158,50 @@ export function FileTree({ pinnedDirs, onPinDir, onUnpinDir, onSelectFile }: Fil
   }, [contextMenu, closeContextMenu]);
 
   const searchMatch = useCallback((node: NodeApi<TreeNode>, term: string) => {
-    if (node.data.isDirectory) return true;
+    if (!term) return true;
     return node.data.name.toLowerCase().includes(term.toLowerCase());
   }, []);
 
+  const filteredFiles = useMemo(() => {
+    const term = searchQuery.trim().toLowerCase();
+    const set = new Set(starredFiles);
+
+    return pinnedFiles
+      .filter(path => isMarkdownPath(path))
+      .filter(path => {
+        if (!term) return true;
+        return path.toLowerCase().includes(term) || path.split(/[\\/]/).pop()?.toLowerCase().includes(term);
+      })
+      .sort((a, b) => {
+        const aStar = set.has(a);
+        const bStar = set.has(b);
+        if (aStar !== bStar) return aStar ? -1 : 1;
+        return a.toLowerCase().localeCompare(b.toLowerCase());
+      });
+  }, [pinnedFiles, starredFiles, searchQuery]);
+
   return (
     <div className="flex flex-col h-full bg-[var(--bg-surface)]">
-      {/* Header */}
       <div className="flex items-center justify-between px-3 py-2 border-b border-[var(--bg-divider)]">
         <span className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide">Explorer</span>
-        <button
-          onClick={handlePinDir}
-          className="flex items-center gap-1 text-xs text-[var(--text-muted)] hover:text-[var(--text-primary)] px-1 py-0.5 rounded hover:bg-[var(--bg-overlay)]"
-          title="Pin Directory"
-        >
-          <Plus size={12} /> Pin Dir
-        </button>
+        <div className="flex items-center gap-1">
+          <button
+            onClick={onAddFiles}
+            className="flex items-center gap-1 text-xs text-[var(--text-muted)] hover:text-[var(--text-primary)] px-1 py-0.5 rounded hover:bg-[var(--bg-overlay)]"
+            title="Import Markdown Files"
+          >
+            <Plus size={12} /> File
+          </button>
+          <button
+            onClick={handlePinDir}
+            className="flex items-center gap-1 text-xs text-[var(--text-muted)] hover:text-[var(--text-primary)] px-1 py-0.5 rounded hover:bg-[var(--bg-overlay)]"
+            title="Pin Directory"
+          >
+            <Plus size={12} /> Dir
+          </button>
+        </div>
       </div>
 
-      {/* Search */}
       <div className="px-2 py-1 border-b border-[var(--bg-divider)]">
         <input
           type="text"
@@ -170,12 +212,62 @@ export function FileTree({ pinnedDirs, onPinDir, onUnpinDir, onSelectFile }: Fil
         />
       </div>
 
-      {/* Tree */}
+      <div className="border-b border-[var(--bg-divider)]">
+        <button
+          onClick={onToggleFilesPanel}
+          className="w-full flex items-center gap-1 px-2 py-1 text-xs uppercase tracking-wide text-[var(--text-muted)] hover:bg-[var(--bg-overlay)]"
+          title={filesPanelOpen ? 'Collapse files' : 'Expand files'}
+        >
+          {filesPanelOpen ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+          <span>Files</span>
+          <span className="ml-auto normal-case">{filteredFiles.length}</span>
+        </button>
+
+        {filesPanelOpen && (
+          <div className="max-h-44 overflow-auto px-1 pb-1">
+            {filteredFiles.length === 0 ? (
+              <div className="px-2 py-2 text-xs text-[var(--text-muted)]">No imported markdown files.</div>
+            ) : (
+              filteredFiles.map(path => {
+                const name = path.split(/[\\/]/).pop() ?? path;
+                const isStarred = starredFiles.includes(path);
+                const isActive = activeFile === path;
+                return (
+                  <div
+                    key={path}
+                    className={cn(
+                      'flex items-center gap-1 px-1.5 py-1 rounded text-sm cursor-pointer',
+                      'hover:bg-[var(--bg-overlay)]',
+                      isActive && 'bg-[var(--bg-overlay)]',
+                    )}
+                    title={path}
+                    onClick={() => openMarkdownFile(path)}
+                  >
+                    <File size={13} className="text-[var(--text-secondary)] flex-shrink-0" />
+                    <span className="truncate text-[var(--text-secondary)]">{name}</span>
+                    <button
+                      className="ml-auto p-0.5 rounded hover:bg-[var(--bg-divider)]"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onToggleFileStar(path);
+                      }}
+                      title={isStarred ? 'Unstar file' : 'Star file'}
+                    >
+                      {isStarred ? <Star size={13} className="text-[var(--accent-warning)]" /> : <StarOff size={13} className="text-[var(--text-muted)]" />}
+                    </button>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        )}
+      </div>
+
       <div ref={containerRef} className="flex-1 overflow-hidden">
         {pinnedDirs.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-center px-4">
             <p className="text-[var(--text-muted)] text-sm">No folders pinned.</p>
-            <p className="text-[var(--text-muted)] text-xs mt-1">Click + Pin Dir to start</p>
+            <p className="text-[var(--text-muted)] text-xs mt-1">Click + Dir to start</p>
           </div>
         ) : (
           <Tree<TreeNode>
@@ -196,10 +288,8 @@ export function FileTree({ pinnedDirs, onPinDir, onUnpinDir, onSelectFile }: Fil
               <div
                 data-id={props.node.data.path}
                 onClick={() => {
-                  // Always open .md files on click, even if already selected
-                  // (react-arborist doesn't re-fire onSelect for already-selected nodes)
-                  if (!props.node.data.isDirectory && props.node.data.name.endsWith('.md') && props.node.isSelected) {
-                    onSelectFile(props.node.data.path);
+                  if (!props.node.data.isDirectory && isMarkdownPath(props.node.data.path)) {
+                    openMarkdownFile(props.node.data.path);
                   }
                 }}
                 onContextMenu={e => {
@@ -216,7 +306,6 @@ export function FileTree({ pinnedDirs, onPinDir, onUnpinDir, onSelectFile }: Fil
         )}
       </div>
 
-      {/* Context Menu */}
       {contextMenu && (
         <div
           className="fixed z-50 bg-[var(--bg-overlay)] border border-[var(--bg-divider)] rounded shadow-lg py-1 text-sm"

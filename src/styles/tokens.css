@@ -1,76 +1,101 @@
-/* Macaron color tokens — WCAG AA verified */
+/* Soft macaron token set */
 
-/* ── 夜（Dark — Mocha Macaron）─── */
+/* Dark (default) */
 :root {
-  --bg-base:        #1E1E2E;
-  --bg-surface:     #181825;
-  --bg-overlay:     #313244;
-  --bg-divider:     #45475A;
+  --bg-base:        #20232c;
+  --bg-surface:     #1b1f27;
+  --bg-overlay:     #2b3140;
+  --bg-divider:     #3b4354;
 
-  --text-primary:   #CDD6F4;
-  --text-secondary: #BAC2DE;
-  --text-muted:     #7F849C;
+  --text-primary:   #d7ddec;
+  --text-secondary: #c0c8dc;
+  --text-muted:     #8993aa;
 
-  --syntax-keyword: #CCAAE0;   /* 薰衣草 */
-  --syntax-string:  #9DD5A5;   /* 柔和薄荷 */
-  --syntax-number:  #EBB490;   /* 桃子 */
-  --syntax-type:    #8DD0E0;   /* 天空蓝 */
-  --syntax-func:    #8DAEEC;   /* 蓝莓 */
-  --syntax-variable:#E596AC;   /* 覆盆子粉 */
+  --syntax-keyword: #b6a6d9;
+  --syntax-string:  #93c8a3;
+  --syntax-number:  #d1a98b;
+  --syntax-type:    #86bdd1;
+  --syntax-func:    #8ea8d8;
+  --syntax-variable:#cc9aad;
 
-  --accent-primary: #CCAAE0;
-  --accent-success: #9DD5A5;
-  --accent-warning: #FAE0AF;
-  --accent-error:   #E596AC;
-  --focus-ring:     0 0 0 2px #CCAAE0;
+  --accent-primary: #a7b7da;
+  --accent-success: #88bf9a;
+  --accent-warning: #d7bc83;
+  --accent-error:   #cf97a3;
+  --focus-ring:     0 0 0 2px #a7b7da;
 }
 
-/* ── 草莓（Light — Fraise Macaron）─── */
+/* Rose */
 [data-theme="light"] {
-  --bg-base:        #FFF5F8;   /* 草莓奶油白 */
-  --bg-surface:     #FFEBF1;   /* 浅玫瑰 */
-  --bg-overlay:     #FAD9E7;   /* 淡粉 */
-  --bg-divider:     #EFB8CE;   /* 玫瑰边框 */
+  --bg-base:        #fbf6f7;
+  --bg-surface:     #f6eff1;
+  --bg-overlay:     #ede3e7;
+  --bg-divider:     #d7c6cd;
 
-  --text-primary:   #3A1D35;   /* 深浆果 */
-  --text-secondary: #6B4560;   /* 中浆果 */
-  --text-muted:     #AA85A0;   /* 薄雾紫 */
+  --text-primary:   #41343d;
+  --text-secondary: #655462;
+  --text-muted:     #938190;
 
-  --syntax-keyword: #BA5288;   /* 覆盆子玫瑰 */
-  --syntax-string:  #4F9A70;   /* 鼠尾草绿 */
-  --syntax-number:  #C27852;   /* 蜜桃橘 */
-  --syntax-type:    #528EB8;   /* 矢车菊蓝 */
-  --syntax-func:    #845EB8;   /* 薰衣草紫 */
-  --syntax-variable:#B85E6E;   /* 覆盆子红 */
+  --syntax-keyword: #9f6f92;
+  --syntax-string:  #5f8f72;
+  --syntax-number:  #a77a5f;
+  --syntax-type:    #5f82a2;
+  --syntax-func:    #786ea8;
+  --syntax-variable:#9f6a79;
 
-  --accent-primary: #BA5288;
-  --accent-success: #4F9A70;
-  --accent-warning: #D4A050;
-  --accent-error:   #C84058;
-  --focus-ring:     0 0 0 2px #BA5288;
+  --accent-primary: #8f799e;
+  --accent-success: #5f8f72;
+  --accent-warning: #b49361;
+  --accent-error:   #ad6877;
+  --focus-ring:     0 0 0 2px #8f799e;
 }
 
-/* ── 薄荷（Mint — Pistache Macaron）─── */
+/* Mint */
 [data-theme="mint"] {
-  --bg-base:        #F2FBF7;   /* 薄荷奶油白 */
-  --bg-surface:     #E0F7EC;   /* 浅薄荷 */
-  --bg-overlay:     #C5EDDA;   /* 中薄荷 */
-  --bg-divider:     #97D9BA;   /* 薄荷边框 */
+  --bg-base:        #f3f8f6;
+  --bg-surface:     #ebf3ef;
+  --bg-overlay:     #dfece6;
+  --bg-divider:     #c1d6cc;
 
-  --text-primary:   #1A3A28;   /* 深森林 */
-  --text-secondary: #3A6848;   /* 中森林 */
-  --text-muted:     #6AAD88;   /* 薄雾绿 */
+  --text-primary:   #2e4338;
+  --text-secondary: #4a6558;
+  --text-muted:     #738a7f;
 
-  --syntax-keyword: #289860;   /* 翡翠绿 */
-  --syntax-string:  #52A0A1;   /* 青玉 */
-  --syntax-number:  #B8943A;   /* 蜂蜜黄 */
-  --syntax-type:    #528DB8;   /* 天蓝 */
-  --syntax-func:    #6E5EB8;   /* 紫罗兰 */
-  --syntax-variable:#B8526E;   /* 覆盆子粉 */
+  --syntax-keyword: #5d8576;
+  --syntax-string:  #568d8f;
+  --syntax-number:  #a4895a;
+  --syntax-type:    #5c80a1;
+  --syntax-func:    #6f74a9;
+  --syntax-variable:#996b78;
 
-  --accent-primary: #289860;
-  --accent-success: #289860;
-  --accent-warning: #B8943A;
-  --accent-error:   #C84060;
-  --focus-ring:     0 0 0 2px #289860;
+  --accent-primary: #5f8e7a;
+  --accent-success: #5f8e7a;
+  --accent-warning: #a68a55;
+  --accent-error:   #aa6f7b;
+  --focus-ring:     0 0 0 2px #5f8e7a;
+}
+
+/* Soft gray */
+[data-theme="gray"] {
+  --bg-base:        #f1f3f5;
+  --bg-surface:     #ebeff2;
+  --bg-overlay:     #e2e7ec;
+  --bg-divider:     #c7d0d9;
+
+  --text-primary:   #2a323c;
+  --text-secondary: #43505e;
+  --text-muted:     #6f7f91;
+
+  --syntax-keyword: #6f77b2;
+  --syntax-string:  #4c8a77;
+  --syntax-number:  #9a7954;
+  --syntax-type:    #4f7898;
+  --syntax-func:    #5f74b1;
+  --syntax-variable:#92657d;
+
+  --accent-primary: #6d86ad;
+  --accent-success: #4f8a77;
+  --accent-warning: #a28151;
+  --accent-error:   #a56a76;
+  --focus-ring:     0 0 0 2px #6d86ad;
 }

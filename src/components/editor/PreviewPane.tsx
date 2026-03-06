@@ -1,4 +1,4 @@
-import { memo, useEffect, useState } from 'react';
+import { memo, useEffect, useMemo, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { convertFileSrc } from '@tauri-apps/api/core';
@@ -9,7 +9,7 @@ import { useDebouncedMarkdown } from '../../hooks/useDebouncedMarkdown';
 interface PreviewPaneProps {
   content: string;
   filePath: string | null;
-  theme?: 'dark' | 'light' | 'mint';
+  theme?: 'dark' | 'light' | 'mint' | 'gray';
 }
 
 interface CodeBlockProps {
@@ -36,6 +36,7 @@ function resolveImageSrc(src: string | undefined, filePath: string | null): stri
 
 export function PreviewPane({ content, filePath, theme = 'dark' }: PreviewPaneProps) {
   const debounced = useDebouncedMarkdown(content, 150);
+  const normalizedContent = useMemo(() => normalizePreviewContent(debounced), [debounced]);
   const shikiTheme: 'dark' | 'light' = theme === 'dark' ? 'dark' : 'light';
 
   return (
@@ -60,8 +61,75 @@ export function PreviewPane({ content, filePath, theme = 'dark' }: PreviewPanePr
           },
         }}
       >
-        {debounced}
+        {normalizedContent}
       </ReactMarkdown>
     </div>
   );
+}
+
+function normalizePreviewContent(input: string): string {
+  if (!input) return input;
+
+  // 1) Try parse structured payload first (supports `ExitPlanMode` prefix and fenced blocks).
+  const parsed = extractPlanPayload(input);
+  if (parsed.length > 0) {
+    return parsed.join('\n\n---\n\n');
+  }
+
+  // 2) Fallback: regex extraction from raw JSON-like text.
+  const jsonFieldRe = /"(sendMessageToUser|plan)"\s*:\s*"((?:\\.|[^"\\])*)"/g;
+  const sections: string[] = [];
+  let m: RegExpExecArray | null = null;
+
+  while ((m = jsonFieldRe.exec(input)) !== null) {
+    const key = m[1];
+    const raw = m[2];
+    try {
+      const decoded = JSON.parse(`"${raw}"`) as string;
+      if (decoded.trim()) {
+        sections.push(`## ${key}\n\n${decoded.trim()}`);
+      }
+    } catch {
+      // Keep original rendering if decoding fails.
+    }
+  }
+
+  if (sections.length > 0) {
+    return sections.join('\n\n---\n\n');
+  }
+
+  return input;
+}
+
+function extractPlanPayload(input: string): string[] {
+  let text = input.trim();
+  if (!text) return [];
+
+  // Strip optional ```json ... ``` wrappers.
+  const fenceMatch = text.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/i);
+  if (fenceMatch?.[1]) {
+    text = fenceMatch[1].trim();
+  }
+
+  // Strip optional command prefix line such as `ExitPlanMode`.
+  if (!text.startsWith('{')) {
+    const idx = text.indexOf('{');
+    if (idx >= 0) text = text.slice(idx).trim();
+  }
+
+  if (!text.startsWith('{')) return [];
+
+  try {
+    const obj = JSON.parse(text) as { sendMessageToUser?: unknown; plan?: unknown };
+    const sections: string[] = [];
+    if (typeof obj.sendMessageToUser === 'string' && obj.sendMessageToUser.trim()) {
+      sections.push(`## sendMessageToUser\n\n${obj.sendMessageToUser.trim()}`);
+    }
+    if (typeof obj.plan === 'string' && obj.plan.trim()) {
+      sections.push(`## plan\n\n${obj.plan.trim()}`);
+    }
+    return sections;
+  } catch {
+    return [];
+  }
 }

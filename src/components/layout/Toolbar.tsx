@@ -1,16 +1,18 @@
-import { useEffect } from 'react';
-import { Code2, Columns2, Eye, Moon, Cherry, Leaf, Save } from 'lucide-react';
+﻿import { useEffect } from 'react';
+import { Code2, Columns2, Eye, Moon, Cherry, Leaf, Save, Circle, Link2, Unlink2 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { SaveState } from '../../hooks/useActiveFile';
 
 export type EditorMode = 'source' | 'split' | 'preview';
-export type Theme = 'dark' | 'light' | 'mint';
+export type Theme = 'dark' | 'light' | 'mint' | 'gray';
 
 interface ToolbarProps {
   mode: EditorMode;
   onModeChange: (mode: EditorMode) => void;
   theme: Theme;
   onThemeToggle: () => void;
+  syncScroll: boolean;
+  onToggleSyncScroll: () => void;
   saveState: SaveState;
   isDirty: boolean;
   onSave: () => void;
@@ -21,8 +23,8 @@ const SAVE_STATE_LABEL: Record<SaveState, string> = {
   clean: '',
   dirty: 'Unsaved',
   saving: 'Saving...',
-  saved: 'Saved ✓',
-  error: 'Save failed ✕',
+  saved: 'Saved',
+  error: 'Save failed',
 };
 
 const SAVE_STATE_COLOR: Record<SaveState, string> = {
@@ -33,15 +35,44 @@ const SAVE_STATE_COLOR: Record<SaveState, string> = {
   error: 'var(--accent-error)',
 };
 
-const THEME_CYCLE: Theme[] = ['dark', 'mint', 'light'];
-const THEME_NEXT: Record<Theme, Theme> = { dark: 'mint', mint: 'light', light: 'dark' };
-const THEME_ICON: Record<Theme, typeof Moon> = { dark: Moon, mint: Leaf, light: Cherry };
-const THEME_LABEL: Record<Theme, string> = { dark: '切换薄荷', mint: '切换草莓', light: '切换深色' };
+const THEME_CYCLE: Theme[] = ['dark', 'mint', 'light', 'gray'];
+const THEME_NEXT: Record<Theme, Theme> = {
+  dark: 'mint',
+  mint: 'light',
+  light: 'gray',
+  gray: 'dark',
+};
+const THEME_ICON: Record<Theme, typeof Moon> = {
+  dark: Moon,
+  mint: Leaf,
+  light: Cherry,
+  gray: Circle,
+};
+const THEME_TEXT: Record<Theme, string> = {
+  dark: 'Dark',
+  mint: 'Mint',
+  light: 'Rose',
+  gray: 'Soft Gray',
+};
 
-export function Toolbar({ mode, onModeChange, theme, onThemeToggle, saveState, isDirty, onSave, fileName }: ToolbarProps) {
+export function Toolbar({
+  mode,
+  onModeChange,
+  theme,
+  onThemeToggle,
+  syncScroll,
+  onToggleSyncScroll,
+  saveState,
+  isDirty,
+  onSave,
+  fileName,
+}: ToolbarProps) {
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if (e.ctrlKey && e.key === 's') { e.preventDefault(); onSave(); }
+      if (e.ctrlKey && e.key === 's') {
+        e.preventDefault();
+        onSave();
+      }
       if (e.ctrlKey && e.key === '\\') {
         e.preventDefault();
         onModeChange(mode === 'source' ? 'split' : 'source');
@@ -64,17 +95,15 @@ export function Toolbar({ mode, onModeChange, theme, onThemeToggle, saveState, i
       className="flex items-center justify-between px-3 py-1.5 border-b"
       style={{ borderColor: 'var(--bg-divider)', backgroundColor: 'var(--bg-surface)' }}
     >
-      {/* Left: file name + dirty indicator */}
       <div className="flex items-center gap-2 min-w-0">
         {isDirty && (
-          <span style={{ color: 'var(--accent-warning)', fontSize: 18, lineHeight: 1 }}>●</span>
+          <span style={{ color: 'var(--accent-warning)', fontSize: 18, lineHeight: 1 }}>•</span>
         )}
         <span className="text-sm truncate" style={{ color: 'var(--text-secondary)' }}>
-          {fileName ? fileName.split('/').pop() : 'No file open'}
+          {fileName ? fileName.split(/[\\/]/).pop() : 'No file open'}
         </span>
       </div>
 
-      {/* Center: mode toggle */}
       <div className="flex items-center gap-0.5 rounded p-0.5" style={{ backgroundColor: 'var(--bg-overlay)' }}>
         {modes.map(({ id, icon: Icon, label }) => (
           <button
@@ -86,7 +115,7 @@ export function Toolbar({ mode, onModeChange, theme, onThemeToggle, saveState, i
               'flex items-center gap-1 px-2 py-1 rounded text-xs transition-colors',
               mode === id
                 ? 'text-[var(--text-primary)]'
-                : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'
+                : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]',
             )}
             style={mode === id ? { backgroundColor: 'var(--bg-surface)' } : {}}
           >
@@ -96,13 +125,21 @@ export function Toolbar({ mode, onModeChange, theme, onThemeToggle, saveState, i
         ))}
       </div>
 
-      {/* Right: save state + theme cycle */}
       <div className="flex items-center gap-2">
         {saveState !== 'clean' && (
           <span className="text-xs" style={{ color: SAVE_STATE_COLOR[saveState] }}>
             {SAVE_STATE_LABEL[saveState]}
           </span>
         )}
+        <button
+          onClick={onToggleSyncScroll}
+          title={syncScroll ? 'Disable sync scroll' : 'Enable sync scroll'}
+          className="flex items-center gap-1 px-2 py-1 rounded text-xs"
+          style={{ color: 'var(--text-secondary)', backgroundColor: 'var(--bg-overlay)' }}
+        >
+          {syncScroll ? <Link2 size={13} /> : <Unlink2 size={13} />}
+          <span>{syncScroll ? 'Sync On' : 'Sync Off'}</span>
+        </button>
         <button
           onClick={onSave}
           title="Save (Ctrl+S)"
@@ -113,12 +150,12 @@ export function Toolbar({ mode, onModeChange, theme, onThemeToggle, saveState, i
         </button>
         <button
           onClick={onThemeToggle}
-          title={THEME_LABEL[theme]}
+          title="Switch theme"
           className="flex items-center gap-1 px-2 py-1 rounded text-xs"
           style={{ color: 'var(--accent-primary)', backgroundColor: 'var(--bg-overlay)' }}
         >
           <ThemeIcon size={13} />
-          <span>{theme === 'dark' ? '夜' : theme === 'mint' ? '薄荷' : '草莓'}</span>
+          <span>{THEME_TEXT[theme]}</span>
         </button>
       </div>
     </div>

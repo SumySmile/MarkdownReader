@@ -1,6 +1,6 @@
 import { RefObject, useEffect, useRef } from 'react';
 import { EditorView } from '@codemirror/view';
-import { EditorState, Compartment, Extension } from '@codemirror/state';
+import { EditorState, Compartment, EditorSelection, Extension } from '@codemirror/state';
 
 interface UseCodeMirrorOptions {
   containerRef: RefObject<HTMLElement | null>;
@@ -13,6 +13,7 @@ export function useCodeMirror({ containerRef, value, onChange, extensions }: Use
   const viewRef = useRef<EditorView | null>(null);
   const onChangeRef = useRef(onChange);
   const extCompartment = useRef(new Compartment());
+  const isApplyingExternalRef = useRef(false);
 
   // Keep onChange ref current without recreating the effect
   useEffect(() => { onChangeRef.current = onChange; });
@@ -26,7 +27,7 @@ export function useCodeMirror({ containerRef, value, onChange, extensions }: Use
         extensions: [
           extCompartment.current.of(extensions),
           EditorView.updateListener.of(update => {
-            if (update.docChanged) {
+            if (update.docChanged && !isApplyingExternalRef.current) {
               onChangeRef.current(update.state.doc.toString());
             }
           }),
@@ -46,7 +47,15 @@ export function useCodeMirror({ containerRef, value, onChange, extensions }: Use
     if (!v) return;
     const current = v.state.doc.toString();
     if (current !== value) {
-      v.dispatch({ changes: { from: 0, to: current.length, insert: value } });
+      const sel = v.state.selection.main;
+      const head = Math.min(sel.head, value.length);
+      const anchor = Math.min(sel.anchor, value.length);
+      isApplyingExternalRef.current = true;
+      v.dispatch({
+        changes: { from: 0, to: current.length, insert: value },
+        selection: EditorSelection.range(anchor, head),
+      });
+      isApplyingExternalRef.current = false;
     }
   }, [value]);
 
