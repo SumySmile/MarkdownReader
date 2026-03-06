@@ -1,4 +1,4 @@
 @echo off
 cd /d "%~dp0"
-start "" wscript.exe "%~dp0MarkdownViewer.vbs"
-exit /b 0
+echo [QuickStart] Starting markdown-reader in dev mode...
+powershell -NoProfile -ExecutionPolicy Bypass -Command "npm run tauri dev"

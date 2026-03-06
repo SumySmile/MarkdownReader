@@ -1,14 +1,18 @@
-import { useRef, useMemo } from 'react';
+import { useRef, useMemo, useEffect, useState } from 'react';
 import { useCodeMirror } from './useCodeMirror';
 import { markdown, markdownLanguage } from '@codemirror/lang-markdown';
 import { languages } from '@codemirror/language-data';
+import { LanguageDescription } from '@codemirror/language';
 import { EditorView } from '@codemirror/view';
 import { defaultKeymap, history, historyKeymap } from '@codemirror/commands';
 import { keymap, lineNumbers, drawSelection } from '@codemirror/view';
+import { EditorState, Extension } from '@codemirror/state';
 
 interface SourceEditorProps {
   content: string;
   onChange: (text: string) => void;
+  filePath: string | null;
+  readOnly?: boolean;
 }
 
 const baseTheme = EditorView.theme({
@@ -34,18 +38,60 @@ const baseTheme = EditorView.theme({
   '.cm-scroller': { overflow: 'auto', height: '100%' },
 });
 
-export function SourceEditor({ content, onChange }: SourceEditorProps) {
+function normalizePath(path: string): string {
+  return path.replace(/\\/g, '/');
+}
+
+function getLanguageFilename(path: string | null): string | null {
+  if (!path) return null;
+  const normalized = normalizePath(path);
+  const slash = normalized.lastIndexOf('/');
+  return slash >= 0 ? normalized.slice(slash + 1) : normalized;
+}
+
+export function SourceEditor({ content, onChange, filePath, readOnly = false }: SourceEditorProps) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const [languageExtension, setLanguageExtension] = useState<Extension>([]);
+  const fileName = getLanguageFilename(filePath);
+  const isMarkdownFile = !!fileName && ['.md', '.markdown', '.mdx'].some(ext => fileName.toLowerCase().endsWith(ext));
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function resolveLanguage() {
+      const fileName = getLanguageFilename(filePath);
+      if (!fileName) {
+        setLanguageExtension([]);
+        return;
+      }
+      const description = LanguageDescription.matchFilename(languages, fileName);
+      if (!description) {
+        setLanguageExtension([]);
+        return;
+      }
+      try {
+        const support = await description.load();
+        if (!cancelled) setLanguageExtension(support.extension);
+      } catch {
+        if (!cancelled) setLanguageExtension([]);
+      }
+    }
+
+    resolveLanguage();
+    return () => { cancelled = true; };
+  }, [filePath]);
 
   const extensions = useMemo(() => [
     history(),
     lineNumbers(),
     drawSelection(),
     keymap.of([...defaultKeymap, ...historyKeymap]),
-    markdown({ base: markdownLanguage, codeLanguages: languages }),
+    isMarkdownFile ? markdown({ base: markdownLanguage, codeLanguages: languages }) : languageExtension,
+    EditorState.readOnly.of(readOnly),
+    EditorView.editable.of(!readOnly),
     baseTheme,
     EditorView.lineWrapping,
-  ], []);
+  ], [isMarkdownFile, languageExtension, readOnly]);
 
   useCodeMirror({ containerRef, value: content, onChange, extensions });
 

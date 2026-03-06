@@ -1,14 +1,16 @@
-import { memo, useEffect, useMemo, useState } from 'react';
+﻿import { memo, useEffect, useMemo, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { convertFileSrc } from '@tauri-apps/api/core';
 import { resolveRelativePath } from '../../lib/utils';
 import { highlight } from '../../lib/shiki';
 import { useDebouncedMarkdown } from '../../hooks/useDebouncedMarkdown';
+import type { FileKind } from '../../lib/markdown';
 
 interface PreviewPaneProps {
   content: string;
   filePath: string | null;
+  fileKind?: FileKind | null;
   theme?: 'dark' | 'light' | 'mint' | 'gray';
 }
 
@@ -34,10 +36,26 @@ function resolveImageSrc(src: string | undefined, filePath: string | null): stri
   return convertFileSrc(resolveRelativePath(filePath, src));
 }
 
-export function PreviewPane({ content, filePath, theme = 'dark' }: PreviewPaneProps) {
+export function PreviewPane({ content, filePath, fileKind = 'markdown', theme = 'dark' }: PreviewPaneProps) {
   const debounced = useDebouncedMarkdown(content, 150);
   const normalizedContent = useMemo(() => normalizePreviewContent(debounced), [debounced]);
   const shikiTheme: 'dark' | 'light' = theme === 'dark' ? 'dark' : 'light';
+
+  if (fileKind === 'text') {
+    return (
+      <div
+        className="h-full overflow-auto px-8 py-6"
+        style={{ color: 'var(--text-primary)', backgroundColor: 'var(--bg-base)' }}
+      >
+        <pre
+          className="whitespace-pre-wrap break-words text-sm leading-6"
+          style={{ fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Consolas, Liberation Mono, monospace' }}
+        >
+          {content}
+        </pre>
+      </div>
+    );
+  }
 
   return (
     <div className="h-full overflow-auto px-8 py-6 markdown-preview"

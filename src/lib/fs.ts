@@ -1,7 +1,8 @@
 import { readDir, watch } from '@tauri-apps/plugin-fs';
 import { open } from '@tauri-apps/plugin-dialog';
+import { openPath } from '@tauri-apps/plugin-opener';
 import { invoke } from '@tauri-apps/api/core';
-import { getMarkdownExtensions } from './markdown';
+import { getOpenableExtensions } from './markdown';
 
 export interface DirEntry {
   name: string;
@@ -30,16 +31,23 @@ export async function pickDirectory(): Promise<string | null> {
   return result as string | null;
 }
 
-export async function pickMarkdownFiles(): Promise<string[]> {
+export async function pickOpenableTextFiles(): Promise<string[]> {
   const result = await open({
     directory: false,
     multiple: true,
-    title: 'Open Markdown File',
-    filters: [{ name: 'Markdown', extensions: getMarkdownExtensions().map(ext => ext.slice(1)) }],
+    title: 'Open Markdown/Text File',
+    filters: [{ name: 'Markdown/Text', extensions: getOpenableExtensions().map(ext => ext.slice(1)) }],
   });
 
   if (!result) return [];
   return Array.isArray(result) ? result : [result];
+}
+
+export async function openContainingFolder(filePath: string): Promise<void> {
+  const normalized = filePath.replace(/\\/g, '/');
+  const slashIndex = normalized.lastIndexOf('/');
+  const folder = slashIndex > 0 ? normalized.slice(0, slashIndex) : normalized;
+  await openPath(folder);
 }
 
 export async function getLaunchArgs(): Promise<string[]> {

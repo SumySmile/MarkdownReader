@@ -3,12 +3,16 @@ import { Code2, Columns2, Eye, Moon, Cherry, Leaf, Save, Circle, Link2, Unlink2 
 import { cn } from '../../lib/utils';
 import { SaveState } from '../../hooks/useActiveFile';
 
-export type EditorMode = 'source' | 'split' | 'preview';
+export type EditorMode = 'source' | 'preview';
 export type Theme = 'dark' | 'light' | 'mint' | 'gray';
 
 interface ToolbarProps {
   mode: EditorMode;
   onModeChange: (mode: EditorMode) => void;
+  sourceSplitEnabled: boolean;
+  onToggleSourceSplit: () => void;
+  isEditable: boolean;
+  readonlyReason: string | null;
   theme: Theme;
   onThemeToggle: () => void;
   syncScroll: boolean;
@@ -58,6 +62,10 @@ const THEME_TEXT: Record<Theme, string> = {
 export function Toolbar({
   mode,
   onModeChange,
+  sourceSplitEnabled,
+  onToggleSourceSplit,
+  isEditable,
+  readonlyReason,
   theme,
   onThemeToggle,
   syncScroll,
@@ -67,26 +75,28 @@ export function Toolbar({
   onSave,
   fileName,
 }: ToolbarProps) {
+  const sourceDisabled = !isEditable;
+
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if (e.ctrlKey && e.key === 's') {
+      if (e.ctrlKey && e.key.toLowerCase() === 's') {
         e.preventDefault();
+        if (!isEditable) return;
         onSave();
       }
       if (e.ctrlKey && e.key === '\\') {
         e.preventDefault();
-        onModeChange(mode === 'source' ? 'split' : 'source');
+        onModeChange(mode === 'source' ? 'preview' : 'source');
       }
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [mode, onModeChange, onSave]);
+  }, [isEditable, mode, onModeChange, onSave]);
 
   const ThemeIcon = THEME_ICON[theme];
 
   const modes: { id: EditorMode; icon: typeof Code2; label: string }[] = [
     { id: 'source', icon: Code2, label: 'Source' },
-    { id: 'split', icon: Columns2, label: 'Split' },
     { id: 'preview', icon: Eye, label: 'Preview' },
   ];
 
@@ -105,28 +115,50 @@ export function Toolbar({
       </div>
 
       <div className="flex items-center gap-0.5 rounded p-0.5" style={{ backgroundColor: 'var(--bg-overlay)' }}>
-        {modes.map(({ id, icon: Icon, label }) => (
-          <button
-            key={id}
-            onClick={() => onModeChange(id)}
-            aria-pressed={mode === id}
-            title={label}
-            className={cn(
-              'flex items-center gap-1 px-2 py-1 rounded text-xs transition-colors',
-              mode === id
-                ? 'text-[var(--text-primary)]'
-                : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]',
-            )}
-            style={mode === id ? { backgroundColor: 'var(--bg-surface)' } : {}}
-          >
-            <Icon size={13} />
-            <span>{label}</span>
-          </button>
-        ))}
+        {modes.map(({ id, icon: Icon, label }) => {
+          const disabled = id === 'source' ? sourceDisabled : false;
+          return (
+            <button
+              key={id}
+              onClick={() => !disabled && onModeChange(id)}
+              aria-pressed={mode === id}
+              disabled={disabled}
+              title={label}
+              className={cn(
+                'flex items-center gap-1 px-2 py-1 rounded text-xs transition-colors',
+                mode === id
+                  ? 'text-[var(--text-primary)]'
+                  : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]',
+                disabled && 'opacity-50 cursor-not-allowed hover:text-[var(--text-muted)]',
+              )}
+              style={mode === id ? { backgroundColor: 'var(--bg-surface)' } : {}}
+            >
+              <Icon size={13} />
+              <span>{label}</span>
+            </button>
+          );
+        })}
       </div>
 
+      {mode === 'source' && (
+        <button
+          onClick={onToggleSourceSplit}
+          title={sourceSplitEnabled ? 'Disable split view' : 'Enable split view'}
+          className="flex items-center gap-1 px-2 py-1 rounded text-xs"
+          style={{ color: 'var(--text-secondary)', backgroundColor: 'var(--bg-overlay)' }}
+        >
+          <Columns2 size={13} />
+          <span>{sourceSplitEnabled ? 'Split On' : 'Split Off'}</span>
+        </button>
+      )}
+
       <div className="flex items-center gap-2">
-        {saveState !== 'clean' && (
+        {readonlyReason && (
+          <span className="text-xs" style={{ color: 'var(--accent-warning)' }}>
+            {readonlyReason}
+          </span>
+        )}
+        {!readonlyReason && saveState !== 'clean' && (
           <span className="text-xs" style={{ color: SAVE_STATE_COLOR[saveState] }}>
             {SAVE_STATE_LABEL[saveState]}
           </span>
@@ -141,10 +173,11 @@ export function Toolbar({
           <span>{syncScroll ? 'Sync On' : 'Sync Off'}</span>
         </button>
         <button
-          onClick={onSave}
-          title="Save (Ctrl+S)"
+          onClick={() => isEditable && onSave()}
+          title={isEditable ? 'Save (Ctrl+S)' : 'Read-only file'}
+          disabled={!isEditable}
           className="p-1 rounded"
-          style={{ color: 'var(--text-muted)' }}
+          style={{ color: 'var(--text-muted)', opacity: isEditable ? 1 : 0.45 }}
         >
           <Save size={14} />
         </button>

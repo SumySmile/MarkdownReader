@@ -12,18 +12,19 @@ export function useActiveFile() {
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const openSeqRef = useRef(0);
 
-  const openFile = useCallback(async (path: string) => {
+  const openFile = useCallback(async (path: string): Promise<{ opened: boolean; content?: string }> => {
     const seq = ++openSeqRef.current;
     if (saveTimerRef.current) {
       clearTimeout(saveTimerRef.current);
       saveTimerRef.current = null;
     }
     const text = await readFile(path);
-    if (seq !== openSeqRef.current) return;
+    if (seq !== openSeqRef.current) return { opened: false };
     setFilePath(path);
     setContent(text);
     setSaveState('clean');
     await storeSet('lastOpenedFile', path);
+    return { opened: true, content: text };
   }, []);
 
   const handleChange = useCallback((newText: string) => {

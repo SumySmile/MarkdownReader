@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { listDirSorted } from '../lib/fs';
-import { isMarkdownPath } from '../lib/markdown';
+import { isOpenablePath } from '../lib/markdown';
 
 export type FileNode = { id: string; name: string; path: string; isDirectory: false; children?: never };
 export type DirectoryNode = { id: string; name: string; path: string; isDirectory: true; children: TreeNode[] | null };
@@ -16,7 +16,7 @@ const CACHE_TTL_MS = 30_000;
 function mapEntries(entries: { name: string; path: string; is_dir: boolean }[]): TreeNode[] {
   return entries
     .filter(e => e.name)
-    .filter(e => e.is_dir || isMarkdownPath(e.name))
+    .filter(e => e.is_dir || isOpenablePath(e.name))
     .map(e => {
       const path = e.path;
       if (e.is_dir) {

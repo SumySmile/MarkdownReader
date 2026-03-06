@@ -1,4 +1,4 @@
-import { FileTree } from '../file-tree/FileTree';
+﻿import { FileTree } from '../file-tree/FileTree';
 import { SourceEditor } from '../editor/SourceEditor';
 import { PreviewPane } from '../editor/PreviewPane';
 import { WysiwygEditor, WysiwygEditorHandle } from '../editor/WysiwygEditor';
@@ -6,6 +6,7 @@ import { SplitPane } from './SplitPane';
 import { Toolbar, EditorMode, Theme } from './Toolbar';
 import { ErrorBoundary } from '../ErrorBoundary';
 import { SaveState } from '../../hooks/useActiveFile';
+import type { FileKind } from '../../lib/markdown';
 
 interface AppLayoutProps {
   pinnedDirs: string[];
@@ -18,17 +19,25 @@ interface AppLayoutProps {
   onToggleFileStar: (path: string) => void;
   onToggleFilesPanel: () => void;
   onRemovePinnedFile: (path: string) => Promise<void> | void;
+  onRemoveOtherPinnedFiles: (path: string) => Promise<void> | void;
   onClearUnstarredFiles: () => Promise<void> | void;
+  onCopyFullPath: (path: string) => Promise<void> | void;
+  onOpenContainingFolder: (path: string) => Promise<void> | void;
   activeFile: string | null;
+  activeFileKind: FileKind | null;
+  activeFileEditable: boolean;
+  readonlyReason: string | null;
   content: string;
   saveState: SaveState;
   isDirty: boolean;
   mode: EditorMode;
+  sourceSplitEnabled: boolean;
   theme: Theme;
   syncScroll: boolean;
   onSelectFile: (path: string) => Promise<void> | void;
   onContentChange: (text: string) => void;
   onModeChange: (mode: EditorMode) => void;
+  onToggleSourceSplit: () => void;
   onThemeToggle: () => void;
   onToggleSyncScroll: () => void;
   onSave: () => void;
@@ -42,7 +51,7 @@ function WelcomeCard() {
       <p className="text-sm mb-6">Open a file from the sidebar to start editing</p>
       <div className="text-xs space-y-1.5 text-left bg-[var(--bg-surface)] rounded p-4">
         <p><kbd className="bg-[var(--bg-overlay)] px-1.5 py-0.5 rounded text-[10px]">Ctrl+S</kbd> Save</p>
-        <p><kbd className="bg-[var(--bg-overlay)] px-1.5 py-0.5 rounded text-[10px]">Ctrl+\</kbd> Toggle Source / Split</p>
+        <p><kbd className="bg-[var(--bg-overlay)] px-1.5 py-0.5 rounded text-[10px]">Ctrl+\</kbd> Toggle Source / Preview</p>
         <p><kbd className="bg-[var(--bg-overlay)] px-1.5 py-0.5 rounded text-[10px]">Ctrl+O</kbd> Open file</p>
         <p><kbd className="bg-[var(--bg-overlay)] px-1.5 py-0.5 rounded text-[10px]">Ctrl+F</kbd> Focus search</p>
       </div>
@@ -51,27 +60,58 @@ function WelcomeCard() {
 }
 
 export function AppLayout({
-  pinnedDirs, pinnedFiles, starredFiles, filesPanelOpen, onPinDir, onUnpinDir, onAddFiles, onToggleFileStar, onToggleFilesPanel, onRemovePinnedFile, onClearUnstarredFiles, activeFile, content, saveState, isDirty,
-  mode, theme, syncScroll, onSelectFile, onContentChange, onModeChange, onThemeToggle, onToggleSyncScroll, onSave, wysiwygRef,
+  pinnedDirs,
+  pinnedFiles,
+  starredFiles,
+  filesPanelOpen,
+  onPinDir,
+  onUnpinDir,
+  onAddFiles,
+  onToggleFileStar,
+  onToggleFilesPanel,
+  onRemovePinnedFile,
+  onRemoveOtherPinnedFiles,
+  onClearUnstarredFiles,
+  onCopyFullPath,
+  onOpenContainingFolder,
+  activeFile,
+  activeFileKind,
+  activeFileEditable,
+  readonlyReason,
+  content,
+  saveState,
+  isDirty,
+  mode,
+  sourceSplitEnabled,
+  theme,
+  syncScroll,
+  onSelectFile,
+  onContentChange,
+  onModeChange,
+  onToggleSourceSplit,
+  onThemeToggle,
+  onToggleSyncScroll,
+  onSave,
+  wysiwygRef,
 }: AppLayoutProps) {
+  const previewKind: FileKind = activeFileKind ?? 'markdown';
+
   const editorArea = activeFile ? (
     <>
-      {/* Source + Preview (CSS visibility) */}
-      <div style={{ display: (mode !== 'source' && mode !== 'split' && mode !== 'preview') ? 'none' : undefined }} className="flex flex-col h-full">
-        {mode === 'split' ? (
+      <div className="flex flex-col h-full">
+        {mode === 'source' && sourceSplitEnabled ? (
           <SplitPane
             syncScroll={syncScroll}
-            left={<SourceEditor content={content} onChange={onContentChange} />}
-            right={<PreviewPane content={content} filePath={activeFile} theme={theme} />}
+            left={<SourceEditor content={content} onChange={onContentChange} filePath={activeFile} readOnly={!activeFileEditable} />}
+            right={<PreviewPane content={content} filePath={activeFile} fileKind={previewKind} theme={theme} />}
           />
         ) : mode === 'source' ? (
-          <SourceEditor content={content} onChange={onContentChange} />
+          <SourceEditor content={content} onChange={onContentChange} filePath={activeFile} readOnly={!activeFileEditable} />
         ) : (
-          <PreviewPane content={content} filePath={activeFile} theme={theme} />
+          <PreviewPane content={content} filePath={activeFile} fileKind={previewKind} theme={theme} />
         )}
       </div>
 
-      {/* WYSIWYG — always mounted, shown only in wysiwyg mode (future: add wysiwyg to EditorMode) */}
       <div style={{ display: 'none' }}>
         <ErrorBoundary fallback={null}>
           <WysiwygEditor ref={wysiwygRef} content={content} onChange={onContentChange} />
@@ -84,7 +124,6 @@ export function AppLayout({
 
   return (
     <div className="flex h-full" style={{ backgroundColor: 'var(--bg-base)' }}>
-      {/* Sidebar */}
       <div className="w-64 flex-shrink-0 border-r" style={{ borderColor: 'var(--bg-divider)' }}>
         <ErrorBoundary fallback={
           <div className="p-4 text-sm" style={{ color: 'var(--accent-error)' }}>Sidebar error</div>
@@ -100,18 +139,24 @@ export function AppLayout({
             onToggleFileStar={onToggleFileStar}
             onToggleFilesPanel={onToggleFilesPanel}
             onRemovePinnedFile={onRemovePinnedFile}
+            onRemoveOtherPinnedFiles={onRemoveOtherPinnedFiles}
             onClearUnstarredFiles={onClearUnstarredFiles}
+            onCopyFullPath={onCopyFullPath}
+            onOpenContainingFolder={onOpenContainingFolder}
             onSelectFile={onSelectFile}
             activeFile={activeFile}
           />
         </ErrorBoundary>
       </div>
 
-      {/* Editor area */}
       <div className="flex flex-col flex-1 min-w-0">
         <Toolbar
           mode={mode}
           onModeChange={onModeChange}
+          sourceSplitEnabled={sourceSplitEnabled}
+          onToggleSourceSplit={onToggleSourceSplit}
+          isEditable={activeFileEditable}
+          readonlyReason={readonlyReason}
           theme={theme}
           onThemeToggle={onThemeToggle}
           syncScroll={syncScroll}
@@ -123,7 +168,7 @@ export function AppLayout({
         />
         <div className="flex-1 overflow-hidden">
           <ErrorBoundary fallback={
-            <div className="p-8 text-center" style={{ color: 'var(--accent-error)' }}>Editor unavailable — please reload.</div>
+            <div className="p-8 text-center" style={{ color: 'var(--accent-error)' }}>Editor unavailable, please reload.</div>
           }>
             {editorArea}
           </ErrorBoundary>
