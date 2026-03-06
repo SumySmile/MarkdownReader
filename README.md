@@ -19,13 +19,14 @@ A desktop Markdown editor based on Tauri + React + TypeScript.
   - Stored pinned directories are re-validated on startup and invalid ones are removed.
 - File panel capabilities:
   - Import single or multiple files (toolbar icon / `Ctrl+O`).
-  - Collapse/expand panel (default expanded).
+  - Explorer uses grouped cards: `Files` and `Folders`.
+  - `Files` panel supports collapse/expand (default expanded).
   - Quick filter chips below search: `MD`, `Star`, and `Clear`.
   - Star files and pin starred files to top.
   - Starring a file from the folder tree syncs to the Files panel.
   - Star icon is rendered as a solid star for clearer state.
-  - Long filenames are truncated with ellipsis and full path tooltip.
-  - Folder tree rows and Files panel rows share consistent star/truncation layout.
+  - Long filenames are truncated with ellipsis and full-path tooltip in both sections.
+  - Files rows and folder-tree file rows share unified layout: fixed star column + consistent text color + hover/active feedback.
   - Right-click file: open / rename / star / remove / copy path / open containing folder.
   - Right-click any directory node: copy path / open directory / refresh (plus unpin when the directory is pinned).
   - Right-click Files header: clear unstarred files.

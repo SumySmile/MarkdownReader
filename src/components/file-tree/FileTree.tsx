@@ -71,8 +71,8 @@ function NodeRow({ node, style, starred = false }: NodeRendererProps<TreeNode> &
       style={style}
       className={cn(
         'grid w-full min-w-0 grid-cols-[12px_14px_minmax(0,1fr)_12px] items-center gap-1 overflow-hidden px-2 py-0.5 rounded cursor-pointer select-none text-sm',
-        'hover:bg-[var(--bg-overlay)]',
-        node.isSelected && 'bg-[var(--bg-overlay)]',
+        'hover:bg-[var(--explorer-row-hover)]',
+        node.isSelected && 'bg-[var(--explorer-row-active)]',
       )}
       onClick={() => {
         if (isDir) node.toggle();
@@ -83,10 +83,7 @@ function NodeRow({ node, style, starred = false }: NodeRendererProps<TreeNode> &
       </span>
       <Icon size={14} className={cn(isDir ? 'text-[var(--accent-primary)]' : 'text-[var(--text-secondary)]')} />
       <span
-        className={cn(
-          'min-w-0 overflow-hidden text-ellipsis whitespace-nowrap',
-          isDir ? 'text-[var(--text-primary)]' : 'text-[var(--text-secondary)]'
-        )}
+        className="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-[var(--text-secondary)]"
         title={node.data.path}
       >
         {node.data.name}
@@ -331,6 +328,9 @@ export function FileTree({
 
   const menuItemClass = 'w-full text-left px-2.5 py-1 text-xs text-[var(--text-secondary)] hover:bg-[var(--bg-divider)]';
   const menuDangerItemClass = `${menuItemClass} text-[var(--accent-error)]`;
+  const sectionCardClass = 'rounded-md border border-[var(--explorer-card-border)] bg-[var(--explorer-card-bg)]';
+  const sectionHeaderClass = 'w-full flex items-center gap-1 px-2 py-1 text-xs uppercase tracking-wide text-[var(--text-muted)] hover:bg-[var(--explorer-row-hover)]';
+  const fileRowClass = 'grid min-w-0 grid-cols-[13px_minmax(0,1fr)_12px] items-center gap-1 px-1.5 py-1 rounded text-sm cursor-pointer text-[var(--text-secondary)]';
 
   return (
     <div className="flex flex-col h-full bg-[var(--bg-surface)]">
@@ -411,120 +411,133 @@ export function FileTree({
         </div>
       </div>
 
-      <div className="border-b border-[var(--bg-divider)]">
-        <button
-          onClick={onToggleFilesPanel}
-          onContextMenu={e => {
-            e.preventDefault();
-            setContextMenu({ x: e.clientX, y: e.clientY, kind: 'files-panel' });
-          }}
-          className="w-full flex items-center gap-1 px-2 py-1 text-xs uppercase tracking-wide text-[var(--text-muted)] hover:bg-[var(--bg-overlay)]"
-          title={filesPanelOpen ? 'Collapse files' : 'Expand files'}
-        >
-          {filesPanelOpen ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
-          <Files size={12} />
-          <span>Files</span>
-          <span className="ml-auto normal-case">{filteredFiles.length}</span>
-        </button>
+      <div className="flex-1 overflow-hidden p-2">
+        <div className="flex h-full min-h-0 flex-col gap-2">
+          <section className={sectionCardClass}>
+            <button
+              onClick={onToggleFilesPanel}
+              onContextMenu={e => {
+                e.preventDefault();
+                setContextMenu({ x: e.clientX, y: e.clientY, kind: 'files-panel' });
+              }}
+              className={sectionHeaderClass}
+              title={filesPanelOpen ? 'Collapse files' : 'Expand files'}
+            >
+              {filesPanelOpen ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+              <Files size={12} />
+              <span>Files</span>
+              <span className="ml-auto normal-case">{filteredFiles.length}</span>
+            </button>
 
-        {filesPanelOpen && (
-          <div className="max-h-44 overflow-auto app-scrollbar px-1 pb-1">
-            {filteredFiles.length === 0 ? (
-              <div className="px-2 py-2 text-xs text-[var(--text-muted)]">No imported files.</div>
-            ) : (
-              filteredFiles.map(path => {
-                const isStarred = isStarredPath(path);
-                const isActive = normalizedActive === path;
-                return (
-                  <div
-                    key={path}
-                    ref={isActive ? activeRowRef : null}
-                    className={cn(
-                      'grid min-w-0 grid-cols-[13px_minmax(0,1fr)_12px] items-center gap-1 px-1.5 py-1 rounded text-sm cursor-pointer',
-                      'hover:bg-[var(--bg-overlay)]',
-                      isActive && 'bg-[var(--bg-overlay)]',
-                    )}
-                    title={path}
-                    onClick={() => openFile(path)}
-                    onContextMenu={e => {
-                      e.preventDefault();
-                      setContextMenu({ x: e.clientX, y: e.clientY, kind: 'file', path, starred: isStarred });
-                    }}
-                  >
-                    <File size={13} className="text-[var(--text-secondary)]" />
-                    <span
-                      className="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-[var(--text-secondary)]"
-                      title={path}
-                    >
-                      {pathName(path)}
-                    </span>
-                    <span className="w-3 text-right">
-                      {isStarred ? <Star size={12} className="text-[var(--accent-warning)] fill-current" /> : null}
-                    </span>
-                  </div>
-                );
-              })
-            )}
-          </div>
-        )}
-      </div>
-
-      <div ref={containerRef} className="flex-1 overflow-hidden app-scrollbar">
-        {pinnedDirs.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full text-center px-4">
-            <p className="text-[var(--text-muted)] text-sm">No folders pinned.</p>
-            <p className="text-[var(--text-muted)] text-xs mt-1">Click + Dir to start</p>
-          </div>
-        ) : (
-          <Tree<TreeNode>
-            data={visibleTreeData}
-            height={height}
-            rowHeight={24}
-            childrenAccessor="children"
-            onSelect={handleSelect}
-            onToggle={handleToggle}
-            searchTerm={searchQuery}
-            searchMatch={searchMatch}
-            openByDefault={false}
-            initialOpenState={Object.fromEntries(expandedDirs.map(path => [normalizePath(path), true]))}
-            disableDrag
-            disableDrop
-            disableEdit
-          >
-            {props => (
-              <div
-                ref={!props.node.data.isDirectory && normalizePath(props.node.data.path) === normalizedActive ? activeRowRef : null}
-                data-id={props.node.data.path}
-                className={cn(
-                  'min-w-0 overflow-hidden',
-                  !props.node.data.isDirectory && normalizePath(props.node.data.path) === normalizedActive && 'bg-[var(--bg-overlay)] rounded'
+            {filesPanelOpen && (
+              <div className="max-h-44 overflow-auto app-scrollbar px-1 pb-1">
+                {filteredFiles.length === 0 ? (
+                  <div className="px-2 py-2 text-xs text-[var(--text-muted)]">No imported files.</div>
+                ) : (
+                  filteredFiles.map(path => {
+                    const isStarred = isStarredPath(path);
+                    const isActive = normalizedActive === path;
+                    return (
+                      <div
+                        key={path}
+                        ref={isActive ? activeRowRef : null}
+                        className={cn(
+                          fileRowClass,
+                          'hover:bg-[var(--explorer-row-hover)]',
+                          isActive && 'bg-[var(--explorer-row-active)]',
+                        )}
+                        title={path}
+                        onClick={() => openFile(path)}
+                        onContextMenu={e => {
+                          e.preventDefault();
+                          setContextMenu({ x: e.clientX, y: e.clientY, kind: 'file', path, starred: isStarred });
+                        }}
+                      >
+                        <File size={13} />
+                        <span
+                          className="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap"
+                          title={path}
+                        >
+                          {pathName(path)}
+                        </span>
+                        <span className="w-3 text-right">
+                          {isStarred ? <Star size={12} className="text-[var(--accent-warning)] fill-current" /> : null}
+                        </span>
+                      </div>
+                    );
+                  })
                 )}
-                onClick={() => {
-                  if (!props.node.data.isDirectory && isOpenablePath(props.node.data.path)) {
-                    openFile(props.node.data.path);
-                  }
-                }}
-                onContextMenu={e => {
-                  if (props.node.data.isDirectory) {
-                    e.preventDefault();
-                    const normalized = normalizePath(props.node.data.path).toLowerCase();
-                    const pinned = pinnedDirs.some(dir => normalizePath(dir).toLowerCase() === normalized);
-                    setContextMenu({ x: e.clientX, y: e.clientY, kind: 'dir', path: props.node.data.path, pinned });
-                  } else {
-                    e.preventDefault();
-                    const starred = isStarredPath(props.node.data.path);
-                    setContextMenu({ x: e.clientX, y: e.clientY, kind: 'file', path: props.node.data.path, starred });
-                  }
-                }}
-              >
-                <NodeRow
-                  {...props}
-                  starred={!props.node.data.isDirectory && isStarredPath(props.node.data.path)}
-                />
               </div>
             )}
-          </Tree>
-        )}
+          </section>
+
+          <section className={cn(sectionCardClass, 'flex min-h-0 flex-1 flex-col overflow-hidden')}>
+            <div className={sectionHeaderClass}>
+              <span className="w-3" />
+              <Folder size={12} />
+              <span>Folders</span>
+              <span className="ml-auto normal-case">{pinnedDirs.length}</span>
+            </div>
+
+            <div ref={containerRef} className="flex-1 overflow-hidden app-scrollbar">
+              {pinnedDirs.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-full text-center px-4">
+                  <p className="text-[var(--text-muted)] text-sm">No folders pinned.</p>
+                  <p className="text-[var(--text-muted)] text-xs mt-1">Click + Dir to start</p>
+                </div>
+              ) : (
+                <Tree<TreeNode>
+                  data={visibleTreeData}
+                  height={height}
+                  rowHeight={24}
+                  childrenAccessor="children"
+                  onSelect={handleSelect}
+                  onToggle={handleToggle}
+                  searchTerm={searchQuery}
+                  searchMatch={searchMatch}
+                  openByDefault={false}
+                  initialOpenState={Object.fromEntries(expandedDirs.map(path => [normalizePath(path), true]))}
+                  disableDrag
+                  disableDrop
+                  disableEdit
+                >
+                  {props => (
+                    <div
+                      ref={!props.node.data.isDirectory && normalizePath(props.node.data.path) === normalizedActive ? activeRowRef : null}
+                      data-id={props.node.data.path}
+                      className={cn(
+                        'min-w-0 overflow-hidden rounded',
+                        !props.node.data.isDirectory && normalizePath(props.node.data.path) === normalizedActive && 'bg-[var(--explorer-row-active)]'
+                      )}
+                      onClick={() => {
+                        if (!props.node.data.isDirectory && isOpenablePath(props.node.data.path)) {
+                          openFile(props.node.data.path);
+                        }
+                      }}
+                      onContextMenu={e => {
+                        if (props.node.data.isDirectory) {
+                          e.preventDefault();
+                          const normalized = normalizePath(props.node.data.path).toLowerCase();
+                          const pinned = pinnedDirs.some(dir => normalizePath(dir).toLowerCase() === normalized);
+                          setContextMenu({ x: e.clientX, y: e.clientY, kind: 'dir', path: props.node.data.path, pinned });
+                        } else {
+                          e.preventDefault();
+                          const starred = isStarredPath(props.node.data.path);
+                          setContextMenu({ x: e.clientX, y: e.clientY, kind: 'file', path: props.node.data.path, starred });
+                        }
+                      }}
+                    >
+                      <NodeRow
+                        {...props}
+                        starred={!props.node.data.isDirectory && isStarredPath(props.node.data.path)}
+                      />
+                    </div>
+                  )}
+                </Tree>
+              )}
+            </div>
+          </section>
+        </div>
       </div>
 
       {contextMenu && (

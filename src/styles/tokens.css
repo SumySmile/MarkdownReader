@@ -32,6 +32,11 @@
   --sidebar-shell: rgba(111, 125, 151, 0.22);
   --sidebar-shell-border: rgba(201, 212, 229, 0.32);
   --sidebar-shell-hover: rgba(126, 140, 166, 0.38);
+  --explorer-card-bg: rgba(48, 55, 67, 0.36);
+  --explorer-card-border: rgba(101, 113, 136, 0.46);
+  --explorer-row-hover: rgba(69, 80, 99, 0.62);
+  --explorer-row-active: rgba(86, 100, 124, 0.72);
+  --explorer-row-muted: rgba(56, 64, 78, 0.58);
 }
 
 /* Rose */
@@ -66,6 +71,11 @@
   --sidebar-shell: rgba(115, 126, 145, 0.2);
   --sidebar-shell-border: rgba(88, 99, 116, 0.32);
   --sidebar-shell-hover: rgba(90, 101, 118, 0.34);
+  --explorer-card-bg: rgba(236, 228, 233, 0.82);
+  --explorer-card-border: rgba(201, 185, 194, 0.75);
+  --explorer-row-hover: rgba(223, 209, 217, 0.96);
+  --explorer-row-active: rgba(211, 194, 204, 0.98);
+  --explorer-row-muted: rgba(229, 219, 225, 0.9);
 }
 
 /* Mint */
@@ -100,6 +110,11 @@
   --sidebar-shell: rgba(101, 125, 113, 0.2);
   --sidebar-shell-border: rgba(72, 95, 83, 0.32);
   --sidebar-shell-hover: rgba(73, 95, 84, 0.34);
+  --explorer-card-bg: rgba(220, 234, 227, 0.8);
+  --explorer-card-border: rgba(169, 196, 183, 0.78);
+  --explorer-row-hover: rgba(204, 223, 214, 0.95);
+  --explorer-row-active: rgba(190, 214, 202, 0.98);
+  --explorer-row-muted: rgba(213, 229, 221, 0.9);
 }
 
 /* Gray */
@@ -134,4 +149,9 @@
   --sidebar-shell: rgba(108, 123, 142, 0.2);
   --sidebar-shell-border: rgba(79, 94, 111, 0.32);
   --sidebar-shell-hover: rgba(80, 95, 113, 0.34);
+  --explorer-card-bg: rgba(223, 230, 238, 0.8);
+  --explorer-card-border: rgba(180, 193, 208, 0.78);
+  --explorer-row-hover: rgba(209, 219, 231, 0.94);
+  --explorer-row-active: rgba(195, 208, 224, 0.98);
+  --explorer-row-muted: rgba(216, 225, 236, 0.9);
 }
