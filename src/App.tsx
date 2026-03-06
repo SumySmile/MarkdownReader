@@ -97,6 +97,8 @@ function App() {
 
   useEffect(() => {
     async function restore() {
+      let restoredPinnedFiles: string[] = [];
+
       const dirs = await storeGet<string[]>('pinnedDirs');
       if (dirs?.length) {
         const validDirs = await filterValidPinnedDirs(dirs);
@@ -107,7 +109,10 @@ function App() {
       }
 
       const files = await storeGet<string[]>('pinnedFiles');
-      if (files?.length) setPinnedFiles(files.map(normalizePath));
+      if (files?.length) {
+        restoredPinnedFiles = files.map(normalizePath);
+        setPinnedFiles(restoredPinnedFiles);
+      }
 
       const stars = await storeGet<string[]>('starredFiles');
       if (stars?.length) setStarredFiles(stars.map(normalizePath));
@@ -143,11 +148,10 @@ function App() {
       if (launchPath) {
         try {
           await openFileByPath(launchPath);
-          setPinnedFiles(prev => {
-            const merged = mergeUniquePaths(prev, [launchPath]);
-            storeSet('pinnedFiles', merged);
-            return merged;
-          });
+          const merged = mergeUniquePaths(restoredPinnedFiles, [launchPath]);
+          restoredPinnedFiles = merged;
+          setPinnedFiles(merged);
+          await storeSet('pinnedFiles', merged);
           return;
         } catch {
           // ignore invalid launch argument
@@ -157,11 +161,9 @@ function App() {
       const lastFile = await storeGet<string>('lastOpenedFile');
       if (lastFile) {
         try {
-          setPinnedFiles(prev => {
-            const merged = mergeUniquePaths(prev, [normalizePath(lastFile)]);
-            storeSet('pinnedFiles', merged);
-            return merged;
-          });
+          const merged = mergeUniquePaths(restoredPinnedFiles, [normalizePath(lastFile)]);
+          setPinnedFiles(merged);
+          await storeSet('pinnedFiles', merged);
           await openFileByPath(lastFile);
         } catch {
           // file no longer exists
