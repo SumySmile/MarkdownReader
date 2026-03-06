@@ -21,6 +21,16 @@ pub fn run() {
             commands::fs::write_text_file,
             commands::fs::get_launch_args
         ])
+        .setup(|app| {
+            #[cfg(target_os = "windows")]
+            {
+                if let Some(window) = app.get_webview_window("main") {
+                    let icon = tauri::image::Image::from_bytes(include_bytes!("../icons/icon.ico"))?;
+                    window.set_icon(icon)?;
+                }
+            }
+            Ok(())
+        })
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

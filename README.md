@@ -67,8 +67,15 @@ npm run tauri build
 Build outputs:
 
 - App executable: `src-tauri\\target\\release\\markdown-reader.exe`
-- NSIS installer: `src-tauri\\target\\release\\bundle\\nsis\\markdown-reader_0.1.0_x64-setup.exe`
-- MSI installer: `src-tauri\\target\\release\\bundle\\msi\\markdown-reader_0.1.0_x64_en-US.msi`
+- NSIS installer: `src-tauri\\target\\release\\bundle\\nsis\\MarkdownEditor_0.1.0_x64-setup.exe`
+- MSI installer: `src-tauri\\target\\release\\bundle\\msi\\MarkdownEditor_0.1.0_x64_en-US.msi`
+
+## Distribution
+
+- For sharing with other users, send the installer (`.exe` or `.msi`) instead of the raw `markdown-reader.exe`.
+- Recommended package for most Windows users:
+  - `src-tauri\\target\\release\\bundle\\nsis\\MarkdownEditor_0.1.0_x64-setup.exe`
+- If taskbar icon still shows old cache after upgrade, unpin and pin the app again.
 
 ## Development
 
@@ -87,3 +94,4 @@ npm run tauri dev
 - On startup restore, pinned directories/files, expanded directory nodes, and the last opened file are restored; the active file is re-added to the imported file list and scrolled into active view.
 - Startup restore merges launch/last-opened file into stored `Files` list without overwriting existing imported/starred entries.
 - Path handling uses a shared normalization utility (including Windows drive/root and long-path prefix cases) to keep imported list, folder tree, and star state matching reliably.
+- Main window icon is explicitly set at startup on Windows to ensure taskbar/thumbnail icon consistency.
