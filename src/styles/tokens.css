@@ -19,10 +19,19 @@
   --syntax-variable:#cc9aad;
 
   --accent-primary: #a7b7da;
+  --text-link:      #b9ccff;
   --accent-success: #88bf9a;
   --accent-warning: #d7bc83;
   --accent-error:   #cf97a3;
   --focus-ring:     0 0 0 2px #a7b7da;
+  --sidebar-handle: rgba(214, 222, 235, 0.48);
+  --sidebar-handle-hover: rgba(229, 236, 246, 0.82);
+  --sidebar-handle-active: rgba(242, 247, 255, 0.98);
+  --sidebar-arrow: rgba(231, 237, 248, 0.94);
+  --sidebar-arrow-hover: rgba(249, 252, 255, 1);
+  --sidebar-shell: rgba(111, 125, 151, 0.22);
+  --sidebar-shell-border: rgba(201, 212, 229, 0.32);
+  --sidebar-shell-hover: rgba(126, 140, 166, 0.38);
 }
 
 /* Rose */
@@ -44,10 +53,19 @@
   --syntax-variable:#9f6a79;
 
   --accent-primary: #8f799e;
+  --text-link:      #8f799e;
   --accent-success: #5f8f72;
   --accent-warning: #b49361;
   --accent-error:   #ad6877;
   --focus-ring:     0 0 0 2px #8f799e;
+  --sidebar-handle: rgba(57, 69, 84, 0.34);
+  --sidebar-handle-hover: rgba(49, 60, 73, 0.62);
+  --sidebar-handle-active: rgba(40, 50, 62, 0.82);
+  --sidebar-arrow: rgba(33, 42, 53, 0.98);
+  --sidebar-arrow-hover: rgba(21, 30, 40, 1);
+  --sidebar-shell: rgba(115, 126, 145, 0.2);
+  --sidebar-shell-border: rgba(88, 99, 116, 0.32);
+  --sidebar-shell-hover: rgba(90, 101, 118, 0.34);
 }
 
 /* Mint */
@@ -69,13 +87,22 @@
   --syntax-variable:#996b78;
 
   --accent-primary: #5f8e7a;
+  --text-link:      #5f8e7a;
   --accent-success: #5f8e7a;
   --accent-warning: #a68a55;
   --accent-error:   #aa6f7b;
   --focus-ring:     0 0 0 2px #5f8e7a;
+  --sidebar-handle: rgba(50, 69, 59, 0.34);
+  --sidebar-handle-hover: rgba(42, 60, 51, 0.62);
+  --sidebar-handle-active: rgba(33, 50, 42, 0.82);
+  --sidebar-arrow: rgba(27, 45, 37, 0.98);
+  --sidebar-arrow-hover: rgba(18, 34, 28, 1);
+  --sidebar-shell: rgba(101, 125, 113, 0.2);
+  --sidebar-shell-border: rgba(72, 95, 83, 0.32);
+  --sidebar-shell-hover: rgba(73, 95, 84, 0.34);
 }
 
-/* Soft gray */
+/* Gray */
 [data-theme="gray"] {
   --bg-base:        #f1f3f5;
   --bg-surface:     #ebeff2;
@@ -94,8 +121,17 @@
   --syntax-variable:#92657d;
 
   --accent-primary: #6d86ad;
+  --text-link:      #6d86ad;
   --accent-success: #4f8a77;
   --accent-warning: #a28151;
   --accent-error:   #a56a76;
   --focus-ring:     0 0 0 2px #6d86ad;
+  --sidebar-handle: rgba(52, 63, 76, 0.34);
+  --sidebar-handle-hover: rgba(43, 54, 67, 0.62);
+  --sidebar-handle-active: rgba(35, 45, 57, 0.82);
+  --sidebar-arrow: rgba(29, 39, 51, 0.98);
+  --sidebar-arrow-hover: rgba(19, 28, 38, 1);
+  --sidebar-shell: rgba(108, 123, 142, 0.2);
+  --sidebar-shell-border: rgba(79, 94, 111, 0.32);
+  --sidebar-shell-hover: rgba(80, 95, 113, 0.34);
 }

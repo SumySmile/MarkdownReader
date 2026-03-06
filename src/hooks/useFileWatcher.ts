@@ -8,7 +8,10 @@ export function useFileWatcher(
   onExternalChange: () => void,
 ): void {
   const onEventRef = useRef(onExternalChange);
+  const activeFileRef = useRef(filePath);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => { onEventRef.current = onExternalChange; });
+  useEffect(() => { activeFileRef.current = filePath; }, [filePath]);
 
   useEffect(() => {
     if (!dirPath) return;
@@ -22,12 +25,16 @@ export function useFileWatcher(
         // event.type is an object { type: string } in Tauri v2
         const kind = (event.type as unknown as { type: string }).type;
         if (kind !== 'modify' && kind !== 'create') return;
-        if (filePath) {
-          const normalizedFile = filePath.replace(/\\/g, '/');
+        const activeFile = activeFileRef.current;
+        if (activeFile) {
+          const normalizedFile = activeFile.replace(/\\/g, '/');
           const paths = (event.paths || []).map((p: string) => p.replace(/\\/g, '/'));
           if (!paths.includes(normalizedFile)) return;
         }
-        onEventRef.current();
+        if (debounceRef.current) clearTimeout(debounceRef.current);
+        debounceRef.current = setTimeout(() => {
+          onEventRef.current();
+        }, 120);
       },
       { recursive: false, delayMs: 300 } as Parameters<typeof watch>[2],
     ).then(stop => {
@@ -37,6 +44,10 @@ export function useFileWatcher(
 
     return () => {
       cancelled = true;
+      if (debounceRef.current) {
+        clearTimeout(debounceRef.current);
+        debounceRef.current = null;
+      }
       stopFn?.();
     };
   }, [dirPath]); // eslint-disable-line react-hooks/exhaustive-deps

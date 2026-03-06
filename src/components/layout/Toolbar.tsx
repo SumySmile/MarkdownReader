@@ -99,6 +99,7 @@ export function Toolbar({
   }, [isEditable, mode, onModeChange, onSave]);
 
   const ThemeIcon = THEME_ICON[theme];
+  const displayFileName = fileName ? fileName.split(/[\\/]/).pop() ?? fileName : 'No file open';
 
   const modes: { id: EditorMode; icon: typeof Code2; label: string }[] = [
     { id: 'source', icon: Code2, label: 'Source' },
@@ -111,8 +112,12 @@ export function Toolbar({
       style={{ borderColor: 'var(--bg-divider)', backgroundColor: 'var(--bg-surface)' }}
     >
       <div className="min-w-0">
-        <span className="block max-w-full text-sm truncate" style={{ color: 'var(--text-secondary)' }}>
-          {fileName ? fileName.split(/[\\/]/).pop() : 'No file open'}
+        <span
+          className="block max-w-full overflow-hidden text-ellipsis whitespace-nowrap pr-2 text-sm"
+          style={{ color: 'var(--text-secondary)' }}
+          title={fileName ?? 'No file open'}
+        >
+          {displayFileName}
         </span>
       </div>
 

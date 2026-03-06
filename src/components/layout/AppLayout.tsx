@@ -1,4 +1,5 @@
-﻿import { FileTree } from '../file-tree/FileTree';
+﻿import { useState } from 'react';
+import { FileTree } from '../file-tree/FileTree';
 import { SourceEditor } from '../editor/SourceEditor';
 import { PreviewPane } from '../editor/PreviewPane';
 import { SplitPane } from './SplitPane';
@@ -6,7 +7,6 @@ import { Toolbar, EditorMode, Theme } from './Toolbar';
 import { ErrorBoundary } from '../ErrorBoundary';
 import { SaveState } from '../../hooks/useActiveFile';
 import type { FileKind } from '../../lib/markdown';
-import { PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 
 interface AppLayoutProps {
   pinnedDirs: string[];
@@ -104,6 +104,8 @@ export function AppLayout({
   onExpandedDirsChange,
   onSave,
 }: AppLayoutProps) {
+  const [editorErrorNonce, setEditorErrorNonce] = useState(0);
+  const [editorErrorMessage, setEditorErrorMessage] = useState<string | null>(null);
   const previewKind: FileKind = activeFileKind ?? 'markdown';
   const isMarkdownFile = previewKind === 'markdown';
   const enableSplitPane = mode === 'source' && isMarkdownFile && sourceSplitEnabled;
@@ -179,30 +181,52 @@ export function AppLayout({
           fileName={activeFile}
         />
         <div className="flex-1 overflow-hidden">
-          <ErrorBoundary fallback={
-            <div className="p-8 text-center" style={{ color: 'var(--accent-error)' }}>Editor unavailable, please reload.</div>
-          }>
+          <ErrorBoundary
+            resetKeys={[activeFile, mode, sourceSplitEnabled, theme, editorErrorNonce]}
+            onError={(error) => {
+              setEditorErrorMessage(error.message || 'Unknown editor error');
+            }}
+            fallback={({ reset, error }) => (
+              <div className="p-8 text-center flex h-full flex-col items-center justify-center gap-3" style={{ color: 'var(--accent-error)' }}>
+                <div>Editor unavailable.</div>
+                <div className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                  {error?.message || editorErrorMessage || 'Please reload editor.'}
+                </div>
+                <button
+                  className="px-3 py-1.5 rounded text-xs border"
+                  style={{ borderColor: 'var(--bg-divider)', color: 'var(--text-secondary)' }}
+                  onClick={() => {
+                    setEditorErrorMessage(null);
+                    reset();
+                    setEditorErrorNonce(n => n + 1);
+                  }}
+                >
+                  Reload Editor
+                </button>
+              </div>
+            )}
+          >
             {editorArea}
           </ErrorBoundary>
         </div>
       </div>
 
-      <button
-        onClick={onToggleSidebar}
-        title={sidebarVisible ? 'Hide explorer' : 'Show explorer'}
-        aria-label={sidebarVisible ? 'Hide explorer' : 'Show explorer'}
-        className="absolute top-2 p-1 rounded border"
-        style={{
-          left: sidebarVisible ? '16rem' : '0.25rem',
-          transform: sidebarVisible ? 'translateX(-50%)' : 'none',
-          borderColor: 'var(--bg-divider)',
-          backgroundColor: 'var(--bg-surface)',
-          color: 'var(--text-secondary)',
-          zIndex: 30,
-        }}
+      <div
+        className={`sidebar-rail ${sidebarVisible ? 'is-open' : 'is-collapsed'}`}
+        style={{ left: sidebarVisible ? '16rem' : '0' }}
       >
-        {sidebarVisible ? <PanelLeftClose size={13} /> : <PanelLeftOpen size={13} />}
-      </button>
+        <button
+          onClick={onToggleSidebar}
+          title={sidebarVisible ? 'Hide Sidebar' : 'Show Sidebar'}
+          aria-label={sidebarVisible ? 'Hide Sidebar' : 'Show Sidebar'}
+          className={`sidebar-handle ${sidebarVisible ? '' : 'is-collapsed'}`}
+        >
+          <span className="sidebar-handle-arrow" aria-hidden="true">
+            {sidebarVisible ? '‹' : '›'}
+          </span>
+        </button>
+      </div>
     </div>
   );
 }
+

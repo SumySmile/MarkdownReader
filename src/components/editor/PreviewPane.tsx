@@ -114,7 +114,7 @@ export function PreviewPane({ content, filePath, fileKind = 'markdown', theme = 
             return <img src={resolved} alt={alt} style={{ maxWidth: '100%' }} />;
           },
           a({ href, children }) {
-            return <a href={href} target="_blank" rel="noreferrer" style={{ color: 'var(--accent-primary)' }}>{children}</a>;
+            return <a href={href} target="_blank" rel="noreferrer" style={{ color: 'var(--text-link)' }}>{children}</a>;
           },
         }}
       >

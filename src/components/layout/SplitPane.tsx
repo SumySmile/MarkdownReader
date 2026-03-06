@@ -16,7 +16,9 @@ function getScrollRatio(el: HTMLElement): number {
 function setScrollRatio(el: HTMLElement, ratio: number): void {
   const max = el.scrollHeight - el.clientHeight;
   if (max <= 0) return;
-  el.scrollTop = max * ratio;
+  const nextTop = max * ratio;
+  if (Math.abs(el.scrollTop - nextTop) < 1) return;
+  el.scrollTop = nextTop;
 }
 
 export function SplitPane({ syncScroll, left, right }: SplitPaneProps) {
@@ -44,9 +46,17 @@ export function SplitPane({ syncScroll, left, right }: SplitPaneProps) {
 
         isProgrammaticSync = true;
         if (activeSource === 'source') {
-          setScrollRatio(previewScroller, getScrollRatio(sourceScroller));
+          const sourceRatio = getScrollRatio(sourceScroller);
+          const previewRatio = getScrollRatio(previewScroller);
+          if (Math.abs(sourceRatio - previewRatio) > 0.002) {
+            setScrollRatio(previewScroller, sourceRatio);
+          }
         } else {
-          setScrollRatio(sourceScroller, getScrollRatio(previewScroller));
+          const sourceRatio = getScrollRatio(sourceScroller);
+          const previewRatio = getScrollRatio(previewScroller);
+          if (Math.abs(sourceRatio - previewRatio) > 0.002) {
+            setScrollRatio(sourceScroller, previewRatio);
+          }
         }
         isProgrammaticSync = false;
         activeSource = null;

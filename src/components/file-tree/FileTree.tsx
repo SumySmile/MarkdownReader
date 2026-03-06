@@ -56,7 +56,7 @@ function pathName(path: string): string {
   return path.split(/[\\/]/).pop() ?? path;
 }
 
-function NodeRow({ node, style }: NodeRendererProps<TreeNode>) {
+function NodeRow({ node, style, starred = false }: NodeRendererProps<TreeNode> & { starred?: boolean }) {
   const isDir = node.data.isDirectory;
   const isOpen = node.isOpen;
   const Icon = isDir ? (isOpen ? FolderOpen : Folder) : File;
@@ -65,7 +65,7 @@ function NodeRow({ node, style }: NodeRendererProps<TreeNode>) {
     <div
       style={style}
       className={cn(
-        'flex items-center gap-1 px-2 py-0.5 rounded cursor-pointer select-none text-sm',
+        'flex w-full min-w-0 items-center gap-1 px-2 py-0.5 rounded cursor-pointer select-none text-sm',
         'hover:bg-[var(--bg-overlay)]',
         node.isSelected && 'bg-[var(--bg-overlay)]',
       )}
@@ -77,9 +77,16 @@ function NodeRow({ node, style }: NodeRendererProps<TreeNode>) {
         {isDir && (isOpen ? <ChevronDown size={12} /> : <ChevronRight size={12} />)}
       </span>
       <Icon size={14} className={cn(isDir ? 'text-[var(--accent-primary)]' : 'text-[var(--text-secondary)]', 'flex-shrink-0')} />
-      <span className={cn('truncate', isDir ? 'text-[var(--text-primary)]' : 'text-[var(--text-secondary)]')}>
-        <span title={node.data.path}>{node.data.name}</span>
+      <span
+        className={cn(
+          'min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap',
+          isDir ? 'text-[var(--text-primary)]' : 'text-[var(--text-secondary)]'
+        )}
+        title={node.data.path}
+      >
+        {node.data.name}
       </span>
+      {!isDir && starred && <Star size={12} className="text-[var(--accent-warning)] ml-1 flex-shrink-0 fill-current" />}
     </div>
   );
 }
@@ -241,6 +248,10 @@ export function FileTree({
     return new Set(starredFiles.map(path => normalizePath(path).toLowerCase()));
   }, [starredFiles]);
 
+  const isStarredPath = useCallback((path: string) => {
+    return starredPathSet.has(normalizePath(path).toLowerCase());
+  }, [starredPathSet]);
+
   const filteredFiles = useMemo(() => {
     const term = searchQuery.trim().toLowerCase();
 
@@ -330,7 +341,7 @@ export function FileTree({
               <div className="px-2 py-2 text-xs text-[var(--text-muted)]">No imported files.</div>
             ) : (
               filteredFiles.map(path => {
-                const isStarred = starredPathSet.has(path.toLowerCase());
+                const isStarred = isStarredPath(path);
                 const isActive = normalizedActive === path;
                 return (
                   <div
@@ -349,8 +360,8 @@ export function FileTree({
                     }}
                   >
                     <File size={13} className="text-[var(--text-secondary)] flex-shrink-0" />
-                    <span className="truncate text-[var(--text-secondary)]" title={path}>{pathName(path)}</span>
-                    {isStarred && <Star size={12} className="text-[var(--accent-warning)] ml-1" />}
+                    <span className="min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap text-[var(--text-secondary)]" title={path}>{pathName(path)}</span>
+                    {isStarred && <Star size={12} className="text-[var(--accent-warning)] ml-1 fill-current" />}
                   </div>
                 );
               })
@@ -401,13 +412,15 @@ export function FileTree({
                     setContextMenu({ x: e.clientX, y: e.clientY, kind: 'dir', path: props.node.data.path, pinned });
                   } else {
                     e.preventDefault();
-                    const normalized = normalizePath(props.node.data.path).toLowerCase();
-                    const starred = starredPathSet.has(normalized);
+                    const starred = isStarredPath(props.node.data.path);
                     setContextMenu({ x: e.clientX, y: e.clientY, kind: 'file', path: props.node.data.path, starred });
                   }
                 }}
               >
-                <NodeRow {...props} />
+                <NodeRow
+                  {...props}
+                  starred={!props.node.data.isDirectory && isStarredPath(props.node.data.path)}
+                />
               </div>
             )}
           </Tree>

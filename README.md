@@ -21,6 +21,8 @@ A desktop Markdown editor based on Tauri + React + TypeScript.
   - Import single or multiple files (toolbar icon / `Ctrl+O`).
   - Collapse/expand panel (default expanded).
   - Star files and pin starred files to top.
+  - Starring a file from the folder tree syncs to the Files panel.
+  - Star icon is rendered as a solid star for clearer state.
   - Right-click file: open / rename / star / remove / copy path / open containing folder.
   - Right-click any directory node: copy path / open directory / refresh (plus unpin when the directory is pinned).
   - Right-click Files header: clear unstarred files.
@@ -35,6 +37,7 @@ A desktop Markdown editor based on Tauri + React + TypeScript.
   - Language is selected by file extension (e.g. `.py`, `.ts`, `.tsx`, `.js`, `.json`, `.yaml`, `.sh`, `.ps1`).
   - Includes default fallback highlighting so non-markdown code files keep visible syntax colors.
   - Unknown file types fall back to plain text highlighting.
+  - Markdown formatting symbols (for example `##`, `**`) are tuned for better visibility in dark theme.
 - Mode behavior for non-markdown files:
   - Editable text files are locked to Source mode.
   - Read-only text files are locked to Preview mode.
