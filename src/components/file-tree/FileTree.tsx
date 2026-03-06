@@ -56,6 +56,11 @@ function pathName(path: string): string {
   return path.split(/[\\/]/).pop() ?? path;
 }
 
+function isMarkdownPath(path: string): boolean {
+  const lower = path.toLowerCase();
+  return lower.endsWith('.md') || lower.endsWith('.markdown') || lower.endsWith('.mdx');
+}
+
 function NodeRow({ node, style, starred = false }: NodeRendererProps<TreeNode> & { starred?: boolean }) {
   const isDir = node.data.isDirectory;
   const isOpen = node.isOpen;
@@ -65,7 +70,7 @@ function NodeRow({ node, style, starred = false }: NodeRendererProps<TreeNode> &
     <div
       style={style}
       className={cn(
-        'flex w-full min-w-0 items-center gap-1 px-2 py-0.5 rounded cursor-pointer select-none text-sm',
+        'grid w-full min-w-0 grid-cols-[12px_14px_minmax(0,1fr)_12px] items-center gap-1 overflow-hidden px-2 py-0.5 rounded cursor-pointer select-none text-sm',
         'hover:bg-[var(--bg-overlay)]',
         node.isSelected && 'bg-[var(--bg-overlay)]',
       )}
@@ -73,20 +78,22 @@ function NodeRow({ node, style, starred = false }: NodeRendererProps<TreeNode> &
         if (isDir) node.toggle();
       }}
     >
-      <span className="w-3 flex-shrink-0">
+      <span className="w-3">
         {isDir && (isOpen ? <ChevronDown size={12} /> : <ChevronRight size={12} />)}
       </span>
-      <Icon size={14} className={cn(isDir ? 'text-[var(--accent-primary)]' : 'text-[var(--text-secondary)]', 'flex-shrink-0')} />
+      <Icon size={14} className={cn(isDir ? 'text-[var(--accent-primary)]' : 'text-[var(--text-secondary)]')} />
       <span
         className={cn(
-          'min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap',
+          'min-w-0 overflow-hidden text-ellipsis whitespace-nowrap',
           isDir ? 'text-[var(--text-primary)]' : 'text-[var(--text-secondary)]'
         )}
         title={node.data.path}
       >
         {node.data.name}
       </span>
-      {!isDir && starred && <Star size={12} className="text-[var(--accent-warning)] ml-1 flex-shrink-0 fill-current" />}
+      <span className="w-3 text-right">
+        {!isDir && starred ? <Star size={12} className="text-[var(--accent-warning)] fill-current" /> : null}
+      </span>
     </div>
   );
 }
@@ -141,6 +148,8 @@ export function FileTree({
   const [height, setHeight] = useState(400);
   const { getOrFetch, invalidate } = useFileTreeStore();
   const [searchQuery, setSearchQuery] = useState('');
+  const [filterMdOnly, setFilterMdOnly] = useState(false);
+  const [filterStarOnly, setFilterStarOnly] = useState(false);
   const [contextMenu, setContextMenu] = useState<ContextMenuState>(null);
 
   const [treeData, setTreeData] = useState<TreeNode[]>([]);
@@ -239,11 +248,6 @@ export function FileTree({
     return () => document.removeEventListener('click', closeContextMenu);
   }, [contextMenu, closeContextMenu]);
 
-  const searchMatch = useCallback((node: NodeApi<TreeNode>, term: string) => {
-    if (!term) return true;
-    return node.data.name.toLowerCase().includes(term.toLowerCase());
-  }, []);
-
   const starredPathSet = useMemo(() => {
     return new Set(starredFiles.map(path => normalizePath(path).toLowerCase()));
   }, [starredFiles]);
@@ -252,12 +256,55 @@ export function FileTree({
     return starredPathSet.has(normalizePath(path).toLowerCase());
   }, [starredPathSet]);
 
+  const hasQuickFilter = filterMdOnly || filterStarOnly;
+
+  const pathMatchesQuickFilters = useCallback((path: string) => {
+    if (filterMdOnly && !isMarkdownPath(path)) return false;
+    if (filterStarOnly && !isStarredPath(path)) return false;
+    return true;
+  }, [filterMdOnly, filterStarOnly, isStarredPath]);
+
+  const filterTreeByQuickFilters = useCallback((nodes: TreeNode[]): TreeNode[] => {
+    if (!hasQuickFilter) return nodes;
+
+    const visit = (node: TreeNode): TreeNode | null => {
+      if (!node.isDirectory) {
+        return pathMatchesQuickFilters(node.path) ? node : null;
+      }
+
+      if (node.children === null) {
+        return node;
+      }
+
+      const nextChildren = node.children
+        .map(visit)
+        .filter((child): child is TreeNode => child !== null);
+      if (nextChildren.length === 0) return null;
+
+      return { ...node, children: nextChildren } as DirectoryNode;
+    };
+
+    return nodes
+      .map(visit)
+      .filter((node): node is TreeNode => node !== null);
+  }, [hasQuickFilter, pathMatchesQuickFilters]);
+
+  const visibleTreeData = useMemo(() => {
+    return filterTreeByQuickFilters(treeData);
+  }, [filterTreeByQuickFilters, treeData]);
+
+  const searchMatch = useCallback((node: NodeApi<TreeNode>, term: string) => {
+    if (!term) return true;
+    return node.data.name.toLowerCase().includes(term.toLowerCase());
+  }, []);
+
   const filteredFiles = useMemo(() => {
     const term = searchQuery.trim().toLowerCase();
 
     return pinnedFiles
       .map(normalizePath)
       .filter(isOpenablePath)
+      .filter(pathMatchesQuickFilters)
       .filter(path => {
         if (!term) return true;
         const name = pathName(path).toLowerCase();
@@ -269,7 +316,7 @@ export function FileTree({
         if (aStar !== bStar) return aStar ? -1 : 1;
         return a.toLowerCase().localeCompare(b.toLowerCase());
       });
-  }, [pinnedFiles, searchQuery, starredPathSet]);
+  }, [pathMatchesQuickFilters, pinnedFiles, searchQuery, starredPathSet]);
 
   const normalizedActive = normalizePath(activeFile ?? '');
   const activeRowRef = useRef<HTMLDivElement | null>(null);
@@ -317,6 +364,51 @@ export function FileTree({
           onChange={e => setSearchQuery(e.target.value)}
           className="w-full bg-[var(--bg-overlay)] text-[var(--text-primary)] text-xs px-2 py-1 rounded outline-none placeholder:text-[var(--text-muted)] focus:ring-1 focus:ring-[var(--accent-primary)]"
         />
+        <div className="mt-1 flex items-center gap-1">
+          <button
+            type="button"
+            onClick={() => setFilterMdOnly(v => !v)}
+            className={cn(
+              'px-2 py-0.5 rounded-full text-[11px] leading-4 border transition-colors',
+              filterMdOnly
+                ? 'bg-[var(--accent-primary)] text-[var(--bg-base)] border-[var(--accent-primary)]'
+                : 'bg-[var(--bg-overlay)] text-[var(--text-secondary)] border-[var(--bg-divider)] hover:bg-[var(--bg-divider)]'
+            )}
+            title="Only markdown"
+          >
+            MD
+          </button>
+          <button
+            type="button"
+            onClick={() => setFilterStarOnly(v => !v)}
+            className={cn(
+              'px-2 py-0.5 rounded-full text-[11px] leading-4 border transition-colors',
+              filterStarOnly
+                ? 'bg-[var(--accent-warning)] text-[var(--bg-base)] border-[var(--accent-warning)]'
+                : 'bg-[var(--bg-overlay)] text-[var(--text-secondary)] border-[var(--bg-divider)] hover:bg-[var(--bg-divider)]'
+            )}
+            title="Only starred"
+          >
+            Star
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setFilterMdOnly(false);
+              setFilterStarOnly(false);
+            }}
+            disabled={!hasQuickFilter}
+            className={cn(
+              'ml-auto px-2 py-0.5 rounded-full text-[11px] leading-4 border transition-colors',
+              hasQuickFilter
+                ? 'bg-[var(--bg-overlay)] text-[var(--text-secondary)] border-[var(--bg-divider)] hover:bg-[var(--bg-divider)]'
+                : 'bg-[var(--bg-overlay)] text-[var(--text-muted)] border-[var(--bg-divider)] opacity-60 cursor-not-allowed'
+            )}
+            title="Clear filters"
+          >
+            Clear
+          </button>
+        </div>
       </div>
 
       <div className="border-b border-[var(--bg-divider)]">
@@ -348,7 +440,7 @@ export function FileTree({
                     key={path}
                     ref={isActive ? activeRowRef : null}
                     className={cn(
-                      'flex items-center gap-1 px-1.5 py-1 rounded text-sm cursor-pointer',
+                      'grid min-w-0 grid-cols-[13px_minmax(0,1fr)_12px] items-center gap-1 px-1.5 py-1 rounded text-sm cursor-pointer',
                       'hover:bg-[var(--bg-overlay)]',
                       isActive && 'bg-[var(--bg-overlay)]',
                     )}
@@ -359,9 +451,16 @@ export function FileTree({
                       setContextMenu({ x: e.clientX, y: e.clientY, kind: 'file', path, starred: isStarred });
                     }}
                   >
-                    <File size={13} className="text-[var(--text-secondary)] flex-shrink-0" />
-                    <span className="min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap text-[var(--text-secondary)]" title={path}>{pathName(path)}</span>
-                    {isStarred && <Star size={12} className="text-[var(--accent-warning)] ml-1 fill-current" />}
+                    <File size={13} className="text-[var(--text-secondary)]" />
+                    <span
+                      className="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-[var(--text-secondary)]"
+                      title={path}
+                    >
+                      {pathName(path)}
+                    </span>
+                    <span className="w-3 text-right">
+                      {isStarred ? <Star size={12} className="text-[var(--accent-warning)] fill-current" /> : null}
+                    </span>
                   </div>
                 );
               })
@@ -378,7 +477,7 @@ export function FileTree({
           </div>
         ) : (
           <Tree<TreeNode>
-            data={treeData}
+            data={visibleTreeData}
             height={height}
             rowHeight={24}
             childrenAccessor="children"
@@ -397,6 +496,7 @@ export function FileTree({
                 ref={!props.node.data.isDirectory && normalizePath(props.node.data.path) === normalizedActive ? activeRowRef : null}
                 data-id={props.node.data.path}
                 className={cn(
+                  'min-w-0 overflow-hidden',
                   !props.node.data.isDirectory && normalizePath(props.node.data.path) === normalizedActive && 'bg-[var(--bg-overlay)] rounded'
                 )}
                 onClick={() => {
