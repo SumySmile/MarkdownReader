@@ -25,7 +25,9 @@ interface AppLayoutProps {
   onCopyDirectoryPath: (path: string) => Promise<void> | void;
   onOpenContainingFolder: (path: string) => Promise<void> | void;
   onOpenDirectory: (path: string) => Promise<void> | void;
-  onRenameFile: (path: string) => Promise<void> | void;
+  onRenameFile: (path: string, nextBaseName: string) => Promise<void> | void;
+  onDuplicateFile: (path: string, nextBaseName: string) => Promise<void> | void;
+  onDeleteFile: (path: string) => Promise<void> | void;
   activeFile: string | null;
   activeFileKind: FileKind | null;
   activeFileEditable: boolean;
@@ -82,6 +84,8 @@ export function AppLayout({
   onOpenContainingFolder,
   onOpenDirectory,
   onRenameFile,
+  onDuplicateFile,
+  onDeleteFile,
   activeFile,
   activeFileKind,
   activeFileEditable,
@@ -156,6 +160,8 @@ export function AppLayout({
               onOpenContainingFolder={onOpenContainingFolder}
               onOpenDirectory={onOpenDirectory}
               onRenameFile={onRenameFile}
+              onDuplicateFile={onDuplicateFile}
+              onDeleteFile={onDeleteFile}
               expandedDirs={expandedDirs}
               onExpandedDirsChange={onExpandedDirsChange}
               onSelectFile={onSelectFile}

@@ -3,7 +3,7 @@ import { AppLayout } from './components/layout/AppLayout';
 import { useActiveFile } from './hooks/useActiveFile';
 import { useFileWatcher } from './hooks/useFileWatcher';
 import { storeGet, storeSet } from './lib/store';
-import { getLaunchArgs, hasOpenableFilesInDirectory, openContainingFolder, openDirectory, pickOpenableTextFiles, readFile, renamePath } from './lib/fs';
+import { deletePath, getLaunchArgs, hasOpenableFilesInDirectory, openContainingFolder, openDirectory, pickOpenableTextFiles, readFile, renamePath, writeFile } from './lib/fs';
 import { getFileKind, isEditablePath, isOpenablePath, isReadonlyPreviewPath, type FileKind } from './lib/markdown';
 import { normalizePath, pathKey } from './lib/path';
 import type { EditorMode, Theme } from './components/layout/Toolbar';
@@ -50,6 +50,17 @@ function getAncestorDirs(filePath: string): string[] {
   return ancestors;
 }
 
+function splitBaseNameAndExtension(fileName: string): { baseName: string; extension: string } {
+  const lastDot = fileName.lastIndexOf('.');
+  if (lastDot <= 0 || lastDot === fileName.length - 1) {
+    return { baseName: fileName, extension: '' };
+  }
+  return {
+    baseName: fileName.slice(0, lastDot),
+    extension: fileName.slice(lastDot),
+  };
+}
+
 async function filterValidPinnedDirs(paths: string[]): Promise<string[]> {
   const normalized = paths.map(normalizePath);
   const checks = await Promise.all(normalized.map(path => hasOpenableFilesInDirectory(path)));
@@ -60,6 +71,12 @@ const MAX_EDITABLE_BYTES = 1 * 1024 * 1024;
 
 function byteLength(text: string): number {
   return new TextEncoder().encode(text).length;
+}
+
+function toErrorMessage(error: unknown, fallback: string): string {
+  if (error instanceof Error && error.message) return error.message;
+  if (typeof error === 'string' && error.trim()) return error;
+  return fallback;
 }
 
 function getReadonlyReason(path: string, content: string): string | null {
@@ -173,10 +190,6 @@ function App() {
           const nextExpanded = getAncestorDirs(launchPath);
           setExpandedDirs(nextExpanded);
           await storeSet('expandedDirs', nextExpanded);
-          const merged = mergeUniquePaths(restoredPinnedFiles, [launchPath]);
-          restoredPinnedFiles = merged;
-          setPinnedFiles(merged);
-          await storeSet('pinnedFiles', merged);
           return;
         } catch {
           // ignore invalid launch argument
@@ -186,9 +199,6 @@ function App() {
       const lastFile = await storeGet<string>('lastOpenedFile');
       if (lastFile) {
         try {
-          const merged = mergeUniquePaths(restoredPinnedFiles, [normalizePath(lastFile)]);
-          setPinnedFiles(merged);
-          await storeSet('pinnedFiles', merged);
           await openFileByPath(lastFile);
           const nextExpanded = getAncestorDirs(lastFile);
           setExpandedDirs(nextExpanded);
@@ -422,18 +432,19 @@ function App() {
     }
   };
 
-  const handleRenameFile = async (path: string) => {
+  const handleRenameFile = async (path: string, nextBaseName: string) => {
     const normalized = normalizePath(path);
     const oldName = normalized.split('/').pop() ?? normalized;
+    const { baseName, extension } = splitBaseNameAndExtension(oldName);
     const slash = normalized.lastIndexOf('/');
     const dir = slash >= 0 ? normalized.slice(0, slash) : '';
-    const input = window.prompt('Rename file (include extension):', oldName);
-    if (!input) return;
-    const trimmed = input.trim();
-    if (!trimmed || trimmed === oldName) return;
-    if (trimmed.includes('/') || trimmed.includes('\\')) return;
+    const trimmed = nextBaseName.trim();
+    if (!trimmed || trimmed === baseName) return;
+    if (trimmed.includes('/') || trimmed.includes('\\')) throw new Error('Invalid file name.');
 
-    const nextPath = `${dir}/${trimmed}`;
+    const nextName = `${trimmed}${extension}`;
+    if (nextName === oldName) return;
+    const nextPath = `${dir}/${nextName}`;
     try {
       await renamePath(normalized, nextPath);
 
@@ -453,6 +464,57 @@ function App() {
       }
     } catch (error) {
       console.error('[App] rename file failed', error);
+      throw new Error(toErrorMessage(error, 'Rename failed.'));
+    }
+  };
+
+  const handleDuplicateFile = async (path: string, nextBaseName: string) => {
+    const normalized = normalizePath(path);
+    const oldName = normalized.split('/').pop() ?? normalized;
+    const { extension } = splitBaseNameAndExtension(oldName);
+    const slash = normalized.lastIndexOf('/');
+    const dir = slash >= 0 ? normalized.slice(0, slash) : '';
+    const trimmed = nextBaseName.trim();
+    if (!trimmed) return;
+    if (trimmed.includes('/') || trimmed.includes('\\')) throw new Error('Invalid file name.');
+
+    const nextPath = `${dir}/${trimmed}${extension}`;
+    if (pathKey(nextPath) === pathKey(normalized)) return;
+    try {
+      let targetExists = false;
+      try {
+        await readFile(nextPath);
+        targetExists = true;
+      } catch {
+        // continue when target does not exist
+      }
+      if (targetExists) throw new Error('A file with this name already exists.');
+
+      const text = await readFile(normalized);
+      await writeFile(nextPath, text);
+      await openFileByPath(nextPath);
+    } catch (error) {
+      console.error('[App] duplicate file failed', error);
+      throw new Error(toErrorMessage(error, 'Duplicate failed.'));
+    }
+  };
+
+  const handleDeleteFile = async (path: string) => {
+    const normalized = normalizePath(path);
+    await deletePath(normalized);
+
+    const nextFiles = removePathCaseInsensitive(pinnedFiles, normalized);
+    const nextStars = removePathCaseInsensitive(starredFiles, normalized);
+    setPinnedFiles(nextFiles);
+    setStarredFiles(nextStars);
+    await storeSet('pinnedFiles', nextFiles);
+    await storeSet('starredFiles', nextStars);
+
+    if (filePath && pathKey(filePath) === pathKey(normalized)) {
+      const fallback = nextFiles[0];
+      if (fallback) {
+        await openFileByPath(fallback);
+      }
     }
   };
 
@@ -485,6 +547,8 @@ function App() {
       onOpenContainingFolder={handleOpenContainingFolder}
       onOpenDirectory={handleOpenDirectory}
       onRenameFile={handleRenameFile}
+      onDuplicateFile={handleDuplicateFile}
+      onDeleteFile={handleDeleteFile}
       activeFile={filePath}
       activeFileKind={activeFileKind}
       activeFileEditable={activeFileEditable}

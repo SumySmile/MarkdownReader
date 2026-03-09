@@ -37,12 +37,15 @@ const baseTheme = EditorView.theme({
   '.cm-activeLineGutter': { backgroundColor: 'var(--bg-overlay)' },
   '.cm-activeLine': { backgroundColor: 'rgba(255,255,255,0.03)' },
   '.cm-scroller': { overflow: 'auto', height: '100%', scrollbarGutter: 'stable both-edges' },
-  '.cm-formatting': { color: 'var(--text-secondary)' },
-  '.cm-formatting-header': { color: 'var(--text-secondary)' },
-  '.cm-formatting-em': { color: 'var(--text-secondary)' },
-  '.cm-formatting-strong': { color: 'var(--text-secondary)' },
-  '.cm-formatting-code': { color: 'var(--text-secondary)' },
-  '.cm-formatting-link': { color: 'var(--text-secondary)' },
+  '.cm-formatting': { color: 'var(--md-syntax)' },
+  '.cm-formatting-header': { color: 'var(--md-syntax)' },
+  '.cm-formatting-em': { color: 'var(--md-syntax)' },
+  '.cm-formatting-strong': { color: 'var(--md-syntax)' },
+  '.cm-formatting-code': { color: 'var(--md-syntax)' },
+  '.cm-formatting-link': { color: 'var(--md-syntax)' },
+  '.cm-heading': { color: 'var(--md-heading)', fontWeight: '600' },
+  '.cm-emphasis': { color: 'var(--md-emphasis)' },
+  '.cm-strong': { color: 'var(--md-strong)' },
   '.cm-url, .cm-link, .cm-link .cm-url': {
     color: 'var(--text-link)',
     textDecoration: 'underline',
@@ -59,6 +62,11 @@ const editorHighlightStyle = HighlightStyle.define([
   { tag: [t.comment, t.lineComment, t.blockComment], color: 'var(--text-muted)' },
   { tag: [t.operator, t.punctuation], color: 'var(--text-secondary)' },
   { tag: [t.link, t.url], color: 'var(--text-link)', textDecoration: 'underline' },
+  { tag: [t.heading], color: 'var(--md-heading)', fontWeight: '600' },
+  { tag: [t.strong], color: 'var(--md-strong)', fontWeight: '700' },
+  { tag: [t.emphasis], color: 'var(--md-emphasis)', fontStyle: 'italic' },
+  { tag: [t.monospace], color: 'var(--md-inline-code)' },
+  { tag: [t.list, t.quote, t.separator], color: 'var(--md-syntax)' },
 ]);
 
 function normalizePath(path: string): string {

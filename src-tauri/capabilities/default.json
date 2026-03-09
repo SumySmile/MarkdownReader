@@ -9,6 +9,8 @@
     "fs:allow-read-dir",
     "fs:allow-read-file",
     "fs:allow-write-file",
+    "fs:allow-remove",
+    "fs:allow-rename",
     "fs:allow-watch",
     { "identifier": "fs:scope", "allow": [{ "path": "$HOME/**" }, { "path": "**" }] },
     "dialog:allow-open",

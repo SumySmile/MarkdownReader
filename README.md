@@ -32,9 +32,10 @@ A desktop Markdown editor based on Tauri + React + TypeScript.
   - In `Star` filter mode, folder ancestors of starred files stay visible and are marked with `*` in Folders (without forcing expand/collapse changes).
   - Long filenames are truncated with ellipsis and full-path tooltip in both sections.
   - Files rows and folder-tree file rows share unified layout: fixed star column + consistent text color + hover/active feedback.
-  - Right-click file: open / rename / star / remove / copy path / open containing folder.
+  - Right-click file: open / rename (name only, extension unchanged) / duplicate (custom name) / delete / star / remove / copy path / open containing folder.
   - Right-click any directory node: copy path / open directory / refresh (plus unpin when the directory is pinned).
-  - Context menu position auto-clamps to viewport so bottom/right edge clicks are still fully visible.
+  - Context menu is anchored to the selected row (prefers below, flips above when needed) and stays in viewport.
+  - The right-click target row is outlined so the action target is always clear.
   - Right-click Files header: clear unstarred files.
 - AI-skill oriented file support:
   - Editable whitelist includes common markdown/code/config/script files such as:
@@ -47,7 +48,8 @@ A desktop Markdown editor based on Tauri + React + TypeScript.
   - Language is selected by file extension (e.g. `.py`, `.ts`, `.tsx`, `.js`, `.json`, `.yaml`, `.sh`, `.ps1`).
   - Includes default fallback highlighting so non-markdown code files keep visible syntax colors.
   - Unknown file types fall back to plain text highlighting.
-  - Markdown formatting symbols (for example `##`, `**`) are tuned for better visibility in dark theme.
+  - Markdown formatting symbols (for example `##`, `**`, `[]()`) are tuned across all themes.
+  - Dark is the only deep theme and uses a dedicated markdown/syntax palette for readability.
 - Mode behavior for non-markdown files:
   - Editable text files are locked to Source mode.
   - Read-only text files are locked to Preview mode.
@@ -94,8 +96,7 @@ npm run tauri dev
 - Product name in packaging metadata: `MarkdownEditor`.
 - Dark theme palette is tuned for readability with slightly lighter deep gray backgrounds.
 - If startup or preview content seems stale after rapid file switching/importing, request sequencing and stale watcher callback guards are included to prevent old file reads from overriding current content.
-- On startup restore, pinned directories/files, expanded directory nodes, and the last opened file are restored; the active file is re-added to the imported file list and scrolled into active view.
-- Startup restore merges launch/last-opened file into stored `Files` list without overwriting existing imported/starred entries.
+- On startup restore, pinned directories/files, expanded directory nodes, and the last opened file are restored; active file reveal is maintained without forcing it into `Files`.
 - On startup, the app auto-reveals the active file path in Folders by expanding only its ancestor chain; other folders remain collapsed by default.
 - Sidebar hide/show keeps tree instance mounted, preserving folder expansion and current selection when reopened.
 - Path handling uses a shared normalization utility (including Windows drive/root and long-path prefix cases) to keep imported list, folder tree, and star state matching reliably.

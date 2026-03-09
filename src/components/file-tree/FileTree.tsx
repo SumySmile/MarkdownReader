@@ -13,6 +13,8 @@ import {
   RefreshCw,
   Star,
   Pencil,
+  CopyPlus,
+  Trash2,
   Files,
   FileCode2,
 } from 'lucide-react';
@@ -37,7 +39,9 @@ interface FileTreeProps {
   onCopyDirectoryPath: (path: string) => Promise<void> | void;
   onOpenContainingFolder: (path: string) => Promise<void> | void;
   onOpenDirectory: (path: string) => Promise<void> | void;
-  onRenameFile: (path: string) => Promise<void> | void;
+  onRenameFile: (path: string, nextBaseName: string) => Promise<void> | void;
+  onDuplicateFile: (path: string, nextBaseName: string) => Promise<void> | void;
+  onDeleteFile: (path: string) => Promise<void> | void;
   expandedDirs: string[];
   onExpandedDirsChange: (paths: string[]) => void;
   onSelectFile: (path: string) => Promise<void> | void;
@@ -46,18 +50,43 @@ interface FileTreeProps {
 
 type ContextMenuState =
   | { x: number; y: number; kind: 'dir'; path: string; pinned: boolean }
-  | { x: number; y: number; kind: 'file'; path: string; starred: boolean }
+  | { x: number; y: number; kind: 'file'; source: 'files' | 'folders'; path: string; starred: boolean }
   | { x: number; y: number; kind: 'files-panel' }
   | null;
 type ContextMenuKind = 'dir' | 'file' | 'files-panel';
 
-function clampContextMenuPoint(x: number, y: number, kind: ContextMenuKind): { x: number; y: number } {
+interface RenameDialogState {
+  path: string;
+  baseName: string;
+  extension: string;
+  value: string;
+  error: string | null;
+}
+
+interface DuplicateDialogState {
+  path: string;
+  baseName: string;
+  extension: string;
+  value: string;
+  error: string | null;
+}
+
+function estimateContextMenuSize(kind: ContextMenuKind, source?: 'files' | 'folders'): { width: number; height: number } {
+  if (kind === 'file') {
+    return source === 'files' ? { width: 200, height: 340 } : { width: 200, height: 260 };
+  }
+  if (kind === 'dir') return { width: 190, height: 190 };
+  return { width: 180, height: 50 };
+}
+
+function clampContextMenuPoint(
+  x: number,
+  y: number,
+  kind: ContextMenuKind,
+  source?: 'files' | 'folders'
+): { x: number; y: number } {
   const margin = 8;
-  const estimated = kind === 'file'
-    ? { width: 180, height: 280 }
-    : kind === 'dir'
-      ? { width: 180, height: 190 }
-      : { width: 180, height: 50 };
+  const estimated = estimateContextMenuSize(kind, source);
   const maxX = Math.max(margin, window.innerWidth - estimated.width - margin);
   const maxY = Math.max(margin, window.innerHeight - estimated.height - margin);
   return {
@@ -66,8 +95,39 @@ function clampContextMenuPoint(x: number, y: number, kind: ContextMenuKind): { x
   };
 }
 
+function anchorContextMenu(
+  menu: Exclude<ContextMenuState, null>,
+  anchorRect: DOMRect
+): { x: number; y: number } {
+  const margin = 8;
+  const source = menu.kind === 'file' ? menu.source : undefined;
+  const estimated = estimateContextMenuSize(menu.kind, source);
+  const preferredX = anchorRect.left + 12;
+  const canOpenBelow = anchorRect.bottom + estimated.height + margin <= window.innerHeight;
+  const preferredY = canOpenBelow ? anchorRect.bottom + 2 : anchorRect.top - estimated.height - 2;
+  return clampContextMenuPoint(preferredX, preferredY, menu.kind, source);
+}
+
 function pathName(path: string): string {
   return path.split(/[\\/]/).pop() ?? path;
+}
+
+function parentDir(path: string): string | null {
+  const normalized = normalizePath(path);
+  const slash = normalized.lastIndexOf('/');
+  if (slash <= 0) return null;
+  return normalized.slice(0, slash);
+}
+
+function splitBaseNameAndExtension(fileName: string): { baseName: string; extension: string } {
+  const lastDot = fileName.lastIndexOf('.');
+  if (lastDot <= 0 || lastDot === fileName.length - 1) {
+    return { baseName: fileName, extension: '' };
+  }
+  return {
+    baseName: fileName.slice(0, lastDot),
+    extension: fileName.slice(lastDot),
+  };
 }
 
 function isMarkdownPath(path: string): boolean {
@@ -100,7 +160,6 @@ function NodeRow({
       className={cn(
         'grid w-full min-w-0 grid-cols-[12px_14px_minmax(0,1fr)_14px] items-center gap-1 overflow-hidden px-2 py-0.5 rounded cursor-pointer select-none text-sm',
         'hover:bg-[var(--explorer-row-hover)]',
-        node.isSelected && 'bg-[var(--explorer-row-active)]',
       )}
       onClick={() => {
         if (isDir) node.toggle();
@@ -165,6 +224,8 @@ export function FileTree({
   onOpenContainingFolder,
   onOpenDirectory,
   onRenameFile,
+  onDuplicateFile,
+  onDeleteFile,
   expandedDirs,
   onExpandedDirsChange,
   onSelectFile,
@@ -178,6 +239,12 @@ export function FileTree({
   const [filterMdOnly, setFilterMdOnly] = useState(false);
   const [filterStarOnly, setFilterStarOnly] = useState(false);
   const [contextMenu, setContextMenu] = useState<ContextMenuState>(null);
+  const [renameDialog, setRenameDialog] = useState<RenameDialogState | null>(null);
+  const [duplicateDialog, setDuplicateDialog] = useState<DuplicateDialogState | null>(null);
+  const renameInputRef = useRef<HTMLInputElement>(null);
+  const duplicateInputRef = useRef<HTMLInputElement>(null);
+  const renameOpen = !!renameDialog;
+  const duplicateOpen = !!duplicateDialog;
 
   const [treeData, setTreeData] = useState<TreeNode[]>([]);
 
@@ -306,10 +373,118 @@ export function FileTree({
     return () => document.removeEventListener('click', closeContextMenu);
   }, [contextMenu, closeContextMenu]);
 
-  const openContextMenu = useCallback((menu: Exclude<ContextMenuState, null>) => {
-    const next = clampContextMenuPoint(menu.x, menu.y, menu.kind);
+  const openContextMenu = useCallback((menu: Exclude<ContextMenuState, null>, anchorEl?: HTMLElement | null) => {
+    const next = anchorEl
+      ? anchorContextMenu(menu, anchorEl.getBoundingClientRect())
+      : clampContextMenuPoint(menu.x, menu.y, menu.kind, menu.kind === 'file' ? menu.source : undefined);
     setContextMenu({ ...menu, x: next.x, y: next.y });
   }, []);
+
+  useEffect(() => {
+    if (!renameOpen) return;
+    const id = window.setTimeout(() => {
+      const input = renameInputRef.current;
+      if (!input) return;
+      input.focus();
+      const end = input.value.length;
+      input.setSelectionRange(end, end);
+    }, 0);
+    return () => window.clearTimeout(id);
+  }, [renameOpen]);
+
+  useEffect(() => {
+    if (!duplicateOpen) return;
+    const id = window.setTimeout(() => {
+      const input = duplicateInputRef.current;
+      if (!input) return;
+      input.focus();
+      const end = input.value.length;
+      input.setSelectionRange(end, end);
+    }, 0);
+    return () => window.clearTimeout(id);
+  }, [duplicateOpen]);
+
+  const openRenameDialog = useCallback((path: string) => {
+    const oldName = pathName(path);
+    const { baseName, extension } = splitBaseNameAndExtension(oldName);
+    setRenameDialog({
+      path,
+      baseName,
+      extension,
+      value: baseName,
+      error: null,
+    });
+  }, []);
+
+  const submitRename = useCallback(async () => {
+    if (!renameDialog) return;
+    const nextBaseName = renameDialog.value.trim();
+    if (!nextBaseName) {
+      setRenameDialog(prev => prev ? { ...prev, error: 'Name cannot be empty.' } : prev);
+      return;
+    }
+    if (nextBaseName.includes('/') || nextBaseName.includes('\\')) {
+      setRenameDialog(prev => prev ? { ...prev, error: 'Name cannot contain path separators.' } : prev);
+      return;
+    }
+    if (nextBaseName === renameDialog.baseName) {
+      setRenameDialog(null);
+      return;
+    }
+
+    try {
+      await Promise.resolve(onRenameFile(renameDialog.path, nextBaseName));
+      const dir = parentDir(renameDialog.path);
+      if (dir) {
+        void handleRefreshDir(dir);
+      }
+      setRenameDialog(null);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Rename failed.';
+      setRenameDialog(prev => prev ? { ...prev, error: message } : prev);
+    }
+  }, [handleRefreshDir, onRenameFile, renameDialog]);
+
+  const openDuplicateDialog = useCallback((path: string) => {
+    const oldName = pathName(path);
+    const { baseName, extension } = splitBaseNameAndExtension(oldName);
+    setDuplicateDialog({
+      path,
+      baseName,
+      extension,
+      value: `${baseName}-copy`,
+      error: null,
+    });
+  }, []);
+
+  const submitDuplicate = useCallback(async () => {
+    if (!duplicateDialog) return;
+    const nextBaseName = duplicateDialog.value.trim();
+    if (!nextBaseName) {
+      setDuplicateDialog(prev => prev ? { ...prev, error: 'Name cannot be empty.' } : prev);
+      return;
+    }
+    if (nextBaseName.includes('/') || nextBaseName.includes('\\')) {
+      setDuplicateDialog(prev => prev ? { ...prev, error: 'Name cannot contain path separators.' } : prev);
+      return;
+    }
+    if (nextBaseName === duplicateDialog.baseName) {
+      setDuplicateDialog(prev => prev ? { ...prev, error: 'Use a different name for duplicate.' } : prev);
+      return;
+    }
+
+    try {
+      await Promise.resolve(onDuplicateFile(duplicateDialog.path, nextBaseName));
+      const dir = parentDir(duplicateDialog.path);
+      if (dir) {
+        void handleRefreshDir(dir);
+      }
+      setDuplicateDialog(null);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Duplicate failed.';
+      setDuplicateDialog(prev => prev ? { ...prev, error: message } : prev);
+    }
+  }, [duplicateDialog, handleRefreshDir, onDuplicateFile]);
 
   const starredPathSet = useMemo(() => {
     return new Set(starredFiles.map(pathKey));
@@ -427,7 +602,7 @@ export function FileTree({
   const menuDangerItemClass = `${menuItemClass} text-[var(--accent-error)]`;
   const sectionCardClass = 'rounded-md border border-[var(--explorer-card-border)] bg-[var(--explorer-card-bg)]';
   const sectionHeaderClass = 'w-full flex items-center gap-1 px-2 py-1 text-xs uppercase tracking-wide text-[var(--text-muted)] hover:bg-[var(--explorer-row-hover)]';
-  const fileRowClass = 'grid min-w-0 grid-cols-[12px_14px_minmax(0,1fr)_14px] items-center gap-1 px-1.5 py-1 rounded text-sm cursor-pointer text-[var(--text-secondary)]';
+  const fileRowClass = 'grid min-w-0 grid-cols-[12px_14px_minmax(0,1fr)_14px] items-center gap-1 px-1.5 py-1 rounded text-sm cursor-pointer text-[var(--text-secondary)] border border-transparent';
 
   return (
     <div className="flex flex-col h-full bg-[var(--bg-surface)]">
@@ -503,7 +678,7 @@ export function FileTree({
               onClick={onToggleFilesPanel}
               onContextMenu={e => {
                 e.preventDefault();
-                openContextMenu({ x: e.clientX, y: e.clientY, kind: 'files-panel' });
+                openContextMenu({ x: e.clientX, y: e.clientY, kind: 'files-panel' }, e.currentTarget);
               }}
               className={sectionHeaderClass}
               title={filesPanelOpen ? 'Collapse files' : 'Expand files'}
@@ -533,12 +708,16 @@ export function FileTree({
                           fileRowClass,
                           'hover:bg-[var(--explorer-row-hover)]',
                           isActive && 'bg-[var(--explorer-row-active)]',
+                          contextMenu?.kind === 'file'
+                          && contextMenu.source === 'files'
+                          && pathKey(contextMenu.path) === pathKey(path)
+                          && 'border-[var(--accent-primary)]'
                         )}
                         title={path}
                         onClick={() => openFile(path)}
                         onContextMenu={e => {
                           e.preventDefault();
-                          openContextMenu({ x: e.clientX, y: e.clientY, kind: 'file', path, starred: isStarred });
+                          openContextMenu({ x: e.clientX, y: e.clientY, kind: 'file', source: 'files', path, starred: isStarred }, e.currentTarget);
                         }}
                       >
                         <span className="w-3" />
@@ -597,7 +776,12 @@ export function FileTree({
                       data-id={props.node.data.path}
                       className={cn(
                         'min-w-0 overflow-hidden rounded',
-                        !props.node.data.isDirectory && normalizePath(props.node.data.path) === normalizedActive && 'bg-[var(--explorer-row-active)]'
+                        !props.node.data.isDirectory && normalizePath(props.node.data.path) === normalizedActive && 'bg-[var(--explorer-row-active)]',
+                        !props.node.data.isDirectory
+                        && contextMenu?.kind === 'file'
+                        && contextMenu.source === 'folders'
+                        && pathKey(contextMenu.path) === pathKey(props.node.data.path)
+                        && 'ring-1 ring-[var(--accent-primary)]'
                       )}
                       onClick={() => {
                         if (!props.node.data.isDirectory && isOpenablePath(props.node.data.path)) {
@@ -609,11 +793,11 @@ export function FileTree({
                           e.preventDefault();
                           const normalized = normalizePath(props.node.data.path).toLowerCase();
                           const pinned = pinnedDirs.some(dir => normalizePath(dir).toLowerCase() === normalized);
-                          openContextMenu({ x: e.clientX, y: e.clientY, kind: 'dir', path: props.node.data.path, pinned });
+                          openContextMenu({ x: e.clientX, y: e.clientY, kind: 'dir', path: props.node.data.path, pinned }, e.currentTarget);
                         } else {
                           e.preventDefault();
                           const starred = isStarredPath(props.node.data.path);
-                          openContextMenu({ x: e.clientX, y: e.clientY, kind: 'file', path: props.node.data.path, starred });
+                          openContextMenu({ x: e.clientX, y: e.clientY, kind: 'file', source: 'folders', path: props.node.data.path, starred }, e.currentTarget);
                         }
                       }}
                     >
@@ -694,12 +878,47 @@ export function FileTree({
               <button
                 className={menuItemClass}
                 onClick={() => {
-                  Promise.resolve(onRenameFile(contextMenu.path)).finally(() => setContextMenu(null));
+                  openRenameDialog(contextMenu.path);
+                  setContextMenu(null);
                 }}
               >
                 <span className="inline-flex items-center gap-1">
                   <Pencil size={12} />
                   Rename
+                </span>
+              </button>
+              <button
+                className={menuItemClass}
+                onClick={() => {
+                  openDuplicateDialog(contextMenu.path);
+                  setContextMenu(null);
+                }}
+              >
+                <span className="inline-flex items-center gap-1">
+                  <CopyPlus size={12} />
+                  Duplicate
+                </span>
+              </button>
+              <button
+                className={menuDangerItemClass}
+                onClick={() => {
+                  const target = contextMenu.path;
+                  const name = pathName(target);
+                  if (!window.confirm(`Delete "${name}"? This cannot be undone.`)) {
+                    setContextMenu(null);
+                    return;
+                  }
+                  Promise.resolve(onDeleteFile(target))
+                    .then(async () => {
+                      const dir = parentDir(target);
+                      if (dir) await handleRefreshDir(dir);
+                    })
+                    .finally(() => setContextMenu(null));
+                }}
+              >
+                <span className="inline-flex items-center gap-1">
+                  <Trash2 size={12} />
+                  Delete
                 </span>
               </button>
               <button
@@ -711,31 +930,35 @@ export function FileTree({
               >
                 {contextMenu.starred ? 'Unstar' : 'Star'}
               </button>
-              <div className="my-1 border-t border-[var(--bg-divider)]" />
-              <button
-                className={menuDangerItemClass}
-                onClick={() => {
-                  Promise.resolve(onRemovePinnedFile(contextMenu.path)).finally(() => setContextMenu(null));
-                }}
-              >
-                Remove
-              </button>
-              <button
-                className={menuDangerItemClass}
-                onClick={() => {
-                  Promise.resolve(onRemoveOtherPinnedFiles(contextMenu.path)).finally(() => setContextMenu(null));
-                }}
-              >
-                Remove Others
-              </button>
-              <button
-                className={`${menuItemClass} text-[var(--accent-warning)]`}
-                onClick={() => {
-                  Promise.resolve(onClearUnstarredFiles()).finally(() => setContextMenu(null));
-                }}
-              >
-                Clear Unstarred
-              </button>
+              {contextMenu.source === 'files' && (
+                <>
+                  <div className="my-1 border-t border-[var(--bg-divider)]" />
+                  <button
+                    className={menuDangerItemClass}
+                    onClick={() => {
+                      Promise.resolve(onRemovePinnedFile(contextMenu.path)).finally(() => setContextMenu(null));
+                    }}
+                  >
+                    Remove
+                  </button>
+                  <button
+                    className={menuDangerItemClass}
+                    onClick={() => {
+                      Promise.resolve(onRemoveOtherPinnedFiles(contextMenu.path)).finally(() => setContextMenu(null));
+                    }}
+                  >
+                    Remove Others
+                  </button>
+                  <button
+                    className={`${menuItemClass} text-[var(--accent-warning)]`}
+                    onClick={() => {
+                      Promise.resolve(onClearUnstarredFiles()).finally(() => setContextMenu(null));
+                    }}
+                  >
+                    Clear Unstarred
+                  </button>
+                </>
+              )}
               <div className="my-1 border-t border-[var(--bg-divider)]" />
               <button
                 className={menuItemClass}
@@ -766,6 +989,120 @@ export function FileTree({
               Clear Unstarred
             </button>
           )}
+        </div>
+      )}
+
+      {renameDialog && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/30"
+          onClick={() => setRenameDialog(null)}
+        >
+          <div
+            className="w-[420px] max-w-[92vw] rounded border border-[var(--bg-divider)] bg-[var(--bg-surface)] p-3 shadow-lg"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="mb-2 text-sm font-medium text-[var(--text-primary)]">Rename File</div>
+            <div className="mb-2 text-xs text-[var(--text-muted)] truncate" title={renameDialog.path}>
+              {renameDialog.path}
+            </div>
+            <div className="flex items-center gap-2">
+              <input
+                ref={renameInputRef}
+                value={renameDialog.value}
+                onChange={e => setRenameDialog(prev => prev ? { ...prev, value: e.target.value, error: null } : prev)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    submitRename();
+                  }
+                  if (e.key === 'Escape') {
+                    e.preventDefault();
+                    setRenameDialog(null);
+                  }
+                }}
+                className="w-full rounded border border-[var(--bg-divider)] bg-[var(--bg-base)] px-2 py-1.5 text-sm text-[var(--text-primary)] outline-none focus:ring-1 focus:ring-[var(--accent-primary)]"
+              />
+              {renameDialog.extension ? (
+                <span className="shrink-0 rounded bg-[var(--bg-overlay)] px-2 py-1 text-xs text-[var(--text-secondary)]">
+                  {renameDialog.extension}
+                </span>
+              ) : null}
+            </div>
+            {renameDialog.error ? (
+              <div className="mt-2 text-xs text-[var(--accent-error)]">{renameDialog.error}</div>
+            ) : null}
+            <div className="mt-3 flex justify-end gap-2">
+              <button
+                className="rounded border border-[var(--bg-divider)] px-2.5 py-1 text-xs text-[var(--text-secondary)] hover:bg-[var(--bg-overlay)]"
+                onClick={() => setRenameDialog(null)}
+              >
+                Cancel
+              </button>
+              <button
+                className="rounded bg-[var(--accent-primary)] px-2.5 py-1 text-xs text-[var(--bg-base)]"
+                onClick={() => { void submitRename(); }}
+              >
+                Rename
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {duplicateDialog && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/30"
+          onClick={() => setDuplicateDialog(null)}
+        >
+          <div
+            className="w-[420px] max-w-[92vw] rounded border border-[var(--bg-divider)] bg-[var(--bg-surface)] p-3 shadow-lg"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="mb-2 text-sm font-medium text-[var(--text-primary)]">Duplicate File</div>
+            <div className="mb-2 text-xs text-[var(--text-muted)] truncate" title={duplicateDialog.path}>
+              {duplicateDialog.path}
+            </div>
+            <div className="flex items-center gap-2">
+              <input
+                ref={duplicateInputRef}
+                value={duplicateDialog.value}
+                onChange={e => setDuplicateDialog(prev => prev ? { ...prev, value: e.target.value, error: null } : prev)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    submitDuplicate();
+                  }
+                  if (e.key === 'Escape') {
+                    e.preventDefault();
+                    setDuplicateDialog(null);
+                  }
+                }}
+                className="w-full rounded border border-[var(--bg-divider)] bg-[var(--bg-base)] px-2 py-1.5 text-sm text-[var(--text-primary)] outline-none focus:ring-1 focus:ring-[var(--accent-primary)]"
+              />
+              {duplicateDialog.extension ? (
+                <span className="shrink-0 rounded bg-[var(--bg-overlay)] px-2 py-1 text-xs text-[var(--text-secondary)]">
+                  {duplicateDialog.extension}
+                </span>
+              ) : null}
+            </div>
+            {duplicateDialog.error ? (
+              <div className="mt-2 text-xs text-[var(--accent-error)]">{duplicateDialog.error}</div>
+            ) : null}
+            <div className="mt-3 flex justify-end gap-2">
+              <button
+                className="rounded border border-[var(--bg-divider)] px-2.5 py-1 text-xs text-[var(--text-secondary)] hover:bg-[var(--bg-overlay)]"
+                onClick={() => setDuplicateDialog(null)}
+              >
+                Cancel
+              </button>
+              <button
+                className="rounded bg-[var(--accent-primary)] px-2.5 py-1 text-xs text-[var(--bg-base)]"
+                onClick={() => { void submitDuplicate(); }}
+              >
+                Duplicate
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

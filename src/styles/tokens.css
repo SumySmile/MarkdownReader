@@ -11,12 +11,17 @@
   --text-secondary: #c8d0e3;
   --text-muted:     #97a3bc;
 
-  --syntax-keyword: #b6a6d9;
-  --syntax-string:  #93c8a3;
-  --syntax-number:  #d1a98b;
-  --syntax-type:    #86bdd1;
-  --syntax-func:    #8ea8d8;
-  --syntax-variable:#cc9aad;
+  --syntax-keyword: #c4b4ee;
+  --syntax-string:  #9fd7af;
+  --syntax-number:  #ddb796;
+  --syntax-type:    #97cde0;
+  --syntax-func:    #a7bce9;
+  --syntax-variable:#d8a8bc;
+  --md-heading:     #e9efff;
+  --md-syntax:      #a9b6d2;
+  --md-emphasis:    #d4def5;
+  --md-strong:      #f0f5ff;
+  --md-inline-code: #9fd2b0;
 
   --accent-primary: #a7b7da;
   --text-link:      #b9ccff;
@@ -56,6 +61,11 @@
   --syntax-type:    #5f82a2;
   --syntax-func:    #786ea8;
   --syntax-variable:#9f6a79;
+  --md-heading:     #4f3b47;
+  --md-syntax:      #887684;
+  --md-emphasis:    #6d5a69;
+  --md-strong:      #3e3039;
+  --md-inline-code: #4f7f66;
 
   --accent-primary: #8f799e;
   --text-link:      #8f799e;
@@ -95,6 +105,11 @@
   --syntax-type:    #5c80a1;
   --syntax-func:    #6f74a9;
   --syntax-variable:#996b78;
+  --md-heading:     #29473b;
+  --md-syntax:      #6b8578;
+  --md-emphasis:    #4d685c;
+  --md-strong:      #213b31;
+  --md-inline-code: #4f7f82;
 
   --accent-primary: #5f8e7a;
   --text-link:      #5f8e7a;
@@ -134,6 +149,11 @@
   --syntax-type:    #4f7898;
   --syntax-func:    #5f74b1;
   --syntax-variable:#92657d;
+  --md-heading:     #24303d;
+  --md-syntax:      #6a7a8c;
+  --md-emphasis:    #4a5c70;
+  --md-strong:      #1f2933;
+  --md-inline-code: #3f7d69;
 
   --accent-primary: #6d86ad;
   --text-link:      #6d86ad;

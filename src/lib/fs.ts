@@ -1,4 +1,4 @@
-import { readDir, rename, watch } from '@tauri-apps/plugin-fs';
+import { readDir, remove, rename, watch } from '@tauri-apps/plugin-fs';
 import { open } from '@tauri-apps/plugin-dialog';
 import { openPath } from '@tauri-apps/plugin-opener';
 import { invoke } from '@tauri-apps/api/core';
@@ -56,6 +56,10 @@ export async function openDirectory(path: string): Promise<void> {
 
 export async function renamePath(oldPath: string, newPath: string): Promise<void> {
   await rename(oldPath.replace(/\\/g, '/'), newPath.replace(/\\/g, '/'));
+}
+
+export async function deletePath(path: string): Promise<void> {
+  await remove(path.replace(/\\/g, '/'));
 }
 
 export async function hasOpenableFilesInDirectory(path: string): Promise<boolean> {
