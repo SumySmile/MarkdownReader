@@ -27,6 +27,29 @@ function removePathCaseInsensitive(paths: string[], target: string): string[] {
   return paths.filter(item => pathKey(item) !== targetKey);
 }
 
+function getAncestorDirs(filePath: string): string[] {
+  const normalized = normalizePath(filePath);
+  const parts = normalized.split('/').filter(Boolean);
+  if (parts.length <= 1) return [];
+
+  const ancestors: string[] = [];
+  let cursor = '';
+  for (let i = 0; i < parts.length - 1; i += 1) {
+    const segment = parts[i];
+    if (i === 0 && /^[a-zA-Z]:$/.test(segment)) {
+      cursor = `${segment}/`;
+    } else if (!cursor) {
+      cursor = segment;
+    } else if (cursor.endsWith('/')) {
+      cursor = `${cursor}${segment}`;
+    } else {
+      cursor = `${cursor}/${segment}`;
+    }
+    ancestors.push(normalizePath(cursor));
+  }
+  return ancestors;
+}
+
 async function filterValidPinnedDirs(paths: string[]): Promise<string[]> {
   const normalized = paths.map(normalizePath);
   const checks = await Promise.all(normalized.map(path => hasOpenableFilesInDirectory(path)));
@@ -140,14 +163,16 @@ function App() {
       const savedSidebarVisible = await storeGet<boolean>('sidebarVisible');
       if (typeof savedSidebarVisible === 'boolean') setSidebarVisible(savedSidebarVisible);
 
-      const savedExpandedDirs = await storeGet<string[]>('expandedDirs');
-      if (savedExpandedDirs?.length) setExpandedDirs(savedExpandedDirs.map(normalizePath));
+      setExpandedDirs([]);
 
       const args = await getLaunchArgs();
       const launchPath = args.map(normalizePath).find(isOpenablePath);
       if (launchPath) {
         try {
           await openFileByPath(launchPath);
+          const nextExpanded = getAncestorDirs(launchPath);
+          setExpandedDirs(nextExpanded);
+          await storeSet('expandedDirs', nextExpanded);
           const merged = mergeUniquePaths(restoredPinnedFiles, [launchPath]);
           restoredPinnedFiles = merged;
           setPinnedFiles(merged);
@@ -165,6 +190,9 @@ function App() {
           setPinnedFiles(merged);
           await storeSet('pinnedFiles', merged);
           await openFileByPath(lastFile);
+          const nextExpanded = getAncestorDirs(lastFile);
+          setExpandedDirs(nextExpanded);
+          await storeSet('expandedDirs', nextExpanded);
         } catch {
           // file no longer exists
         }

@@ -25,13 +25,16 @@ A desktop Markdown editor based on Tauri + React + TypeScript.
   - Quick filters use icon toggles in the header:
     - `MD` filter icon (left of Import Files) toggles markdown-only view.
     - `Star` filter icon toggles starred-only view.
+  - Header actions are grouped: import/pin actions and filter toggles are visually separated.
   - Star files and pin starred files to top.
   - Starring a file from the folder tree syncs to the Files panel.
   - Star icon is rendered as a solid star for clearer state.
+  - In `Star` filter mode, folder ancestors of starred files stay visible and are marked with `*` in Folders (without forcing expand/collapse changes).
   - Long filenames are truncated with ellipsis and full-path tooltip in both sections.
   - Files rows and folder-tree file rows share unified layout: fixed star column + consistent text color + hover/active feedback.
   - Right-click file: open / rename / star / remove / copy path / open containing folder.
   - Right-click any directory node: copy path / open directory / refresh (plus unpin when the directory is pinned).
+  - Context menu position auto-clamps to viewport so bottom/right edge clicks are still fully visible.
   - Right-click Files header: clear unstarred files.
 - AI-skill oriented file support:
   - Editable whitelist includes common markdown/code/config/script files such as:
@@ -93,5 +96,7 @@ npm run tauri dev
 - If startup or preview content seems stale after rapid file switching/importing, request sequencing and stale watcher callback guards are included to prevent old file reads from overriding current content.
 - On startup restore, pinned directories/files, expanded directory nodes, and the last opened file are restored; the active file is re-added to the imported file list and scrolled into active view.
 - Startup restore merges launch/last-opened file into stored `Files` list without overwriting existing imported/starred entries.
+- On startup, the app auto-reveals the active file path in Folders by expanding only its ancestor chain; other folders remain collapsed by default.
+- Sidebar hide/show keeps tree instance mounted, preserving folder expansion and current selection when reopened.
 - Path handling uses a shared normalization utility (including Windows drive/root and long-path prefix cases) to keep imported list, folder tree, and star state matching reliably.
 - Main window icon is explicitly set at startup on Windows to ensure taskbar/thumbnail icon consistency.

@@ -130,8 +130,11 @@ export function AppLayout({
 
   return (
     <div className="relative flex h-full" style={{ backgroundColor: 'var(--bg-base)' }}>
-      {sidebarVisible && (
-        <div className="w-64 flex-shrink-0 border-r" style={{ borderColor: 'var(--bg-divider)' }}>
+      <div
+        className={`flex-shrink-0 overflow-hidden border-r transition-[width,opacity] duration-150 ${sidebarVisible ? 'w-64 opacity-100' : 'w-0 opacity-0 pointer-events-none'}`}
+        style={{ borderColor: 'var(--bg-divider)' }}
+      >
+        <div className="h-full w-64">
           <ErrorBoundary fallback={
             <div className="p-4 text-sm" style={{ color: 'var(--accent-error)' }}>Sidebar error</div>
           }>
@@ -160,7 +163,7 @@ export function AppLayout({
             />
           </ErrorBoundary>
         </div>
-      )}
+      </div>
 
       <div className="flex flex-col flex-1 min-w-0">
         <Toolbar

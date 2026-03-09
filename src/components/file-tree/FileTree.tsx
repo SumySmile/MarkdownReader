@@ -49,6 +49,22 @@ type ContextMenuState =
   | { x: number; y: number; kind: 'file'; path: string; starred: boolean }
   | { x: number; y: number; kind: 'files-panel' }
   | null;
+type ContextMenuKind = 'dir' | 'file' | 'files-panel';
+
+function clampContextMenuPoint(x: number, y: number, kind: ContextMenuKind): { x: number; y: number } {
+  const margin = 8;
+  const estimated = kind === 'file'
+    ? { width: 180, height: 280 }
+    : kind === 'dir'
+      ? { width: 180, height: 190 }
+      : { width: 180, height: 50 };
+  const maxX = Math.max(margin, window.innerWidth - estimated.width - margin);
+  const maxY = Math.max(margin, window.innerHeight - estimated.height - margin);
+  return {
+    x: Math.max(margin, Math.min(x, maxX)),
+    y: Math.max(margin, Math.min(y, maxY)),
+  };
+}
 
 function pathName(path: string): string {
   return path.split(/[\\/]/).pop() ?? path;
@@ -68,7 +84,12 @@ function EmptyState({ title, subtitle }: { title: string; subtitle?: ReactNode }
   );
 }
 
-function NodeRow({ node, style, starred = false }: NodeRendererProps<TreeNode> & { starred?: boolean }) {
+function NodeRow({
+  node,
+  style,
+  starred = false,
+  hasStarredDescendant = false,
+}: NodeRendererProps<TreeNode> & { starred?: boolean; hasStarredDescendant?: boolean }) {
   const isDir = node.data.isDirectory;
   const isOpen = node.isOpen;
   const Icon = isDir ? (isOpen ? FolderOpen : Folder) : File;
@@ -77,7 +98,7 @@ function NodeRow({ node, style, starred = false }: NodeRendererProps<TreeNode> &
     <div
       style={style}
       className={cn(
-        'grid w-full min-w-0 grid-cols-[12px_14px_minmax(0,1fr)_12px] items-center gap-1 overflow-hidden px-2 py-0.5 rounded cursor-pointer select-none text-sm',
+        'grid w-full min-w-0 grid-cols-[12px_14px_minmax(0,1fr)_14px] items-center gap-1 overflow-hidden px-2 py-0.5 rounded cursor-pointer select-none text-sm',
         'hover:bg-[var(--explorer-row-hover)]',
         node.isSelected && 'bg-[var(--explorer-row-active)]',
       )}
@@ -95,8 +116,9 @@ function NodeRow({ node, style, starred = false }: NodeRendererProps<TreeNode> &
       >
         {node.data.name}
       </span>
-      <span className="w-3 text-right">
+      <span className="w-3.5 text-right justify-self-end">
         {!isDir && starred ? <Star size={12} className="text-[var(--accent-warning)] fill-current" /> : null}
+        {isDir && hasStarredDescendant ? <span className="text-[10px] leading-none text-[var(--accent-warning)] opacity-90">*</span> : null}
       </span>
     </div>
   );
@@ -150,6 +172,7 @@ export function FileTree({
 }: FileTreeProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [height, setHeight] = useState(400);
+  const [width, setWidth] = useState(320);
   const { getOrFetch, invalidate } = useFileTreeStore();
   const [searchQuery, setSearchQuery] = useState('');
   const [filterMdOnly, setFilterMdOnly] = useState(false);
@@ -178,16 +201,22 @@ export function FileTree({
   useEffect(() => {
     if (!containerRef.current) return;
     let rafId: number;
-    const updateHeight = (rawHeight: number) => {
-      const next = Math.max(1, Math.round(rawHeight));
-      setHeight(prev => (prev === next ? prev : next));
+    const updateSize = (rawHeight: number, rawWidth: number) => {
+      const nextHeight = Math.max(1, Math.round(rawHeight));
+      const nextWidth = Math.max(1, Math.round(rawWidth));
+      setHeight(prev => (prev === nextHeight ? prev : nextHeight));
+      setWidth(prev => (prev === nextWidth ? prev : nextWidth));
     };
 
-    updateHeight(containerRef.current.getBoundingClientRect().height);
+    {
+      const rect = containerRef.current.getBoundingClientRect();
+      updateSize(rect.height, rect.width);
+    }
 
     const ro = new ResizeObserver(entries => {
       rafId = requestAnimationFrame(() => {
-        updateHeight(entries[0]?.contentRect.height ?? 400);
+        const contentRect = entries[0]?.contentRect;
+        updateSize(contentRect?.height ?? 400, contentRect?.width ?? 320);
       });
     });
     ro.observe(containerRef.current);
@@ -227,6 +256,31 @@ export function FileTree({
     }
   }, [treeData, getOrFetch, invalidate]);
 
+  useEffect(() => {
+    const targets = expandedDirs.map(normalizePath);
+    if (!targets.length) return;
+    let canceled = false;
+
+    const ensureLoaded = async () => {
+      for (const dirPath of targets) {
+        const node = findNode(treeData, dirPath);
+        if (!node || !node.isDirectory || node.children !== null) continue;
+        try {
+          const children = await getOrFetch(dirPath);
+          if (canceled) return;
+          setTreeData(prev => updateNodeChildren(prev, dirPath, children));
+        } catch (err) {
+          console.error('[FileTree] preload expanded dir failed', dirPath, err);
+        }
+      }
+    };
+
+    ensureLoaded();
+    return () => {
+      canceled = true;
+    };
+  }, [expandedDirs, treeData, getOrFetch]);
+
   const handlePinDir = useCallback(async () => {
     const path = await pickDirectory();
     if (path) onPinDir(normalizePath(path));
@@ -252,6 +306,11 @@ export function FileTree({
     return () => document.removeEventListener('click', closeContextMenu);
   }, [contextMenu, closeContextMenu]);
 
+  const openContextMenu = useCallback((menu: Exclude<ContextMenuState, null>) => {
+    const next = clampContextMenuPoint(menu.x, menu.y, menu.kind);
+    setContextMenu({ ...menu, x: next.x, y: next.y });
+  }, []);
+
   const starredPathSet = useMemo(() => {
     return new Set(starredFiles.map(pathKey));
   }, [starredFiles]);
@@ -264,6 +323,31 @@ export function FileTree({
     if (starredPathSet.has(key)) return true;
     return starredPathNoDriveSet.has(pathKeyNoDrive(path));
   }, [starredPathNoDriveSet, starredPathSet]);
+
+  const starredAncestorDirs = useMemo(() => {
+    const dirs = new Set<string>();
+    for (const file of starredFiles) {
+      const normalized = normalizePath(file);
+      const parts = normalized.split('/').filter(Boolean);
+      if (parts.length <= 1) continue;
+
+      let cursor = '';
+      for (let i = 0; i < parts.length - 1; i += 1) {
+        const segment = parts[i];
+        if (i === 0 && /^[a-zA-Z]:$/.test(segment)) {
+          cursor = `${segment}/`;
+        } else if (!cursor) {
+          cursor = segment;
+        } else if (cursor.endsWith('/')) {
+          cursor = `${cursor}${segment}`;
+        } else {
+          cursor = `${cursor}/${segment}`;
+        }
+        dirs.add(pathKey(cursor));
+      }
+    }
+    return dirs;
+  }, [starredFiles]);
 
   const pathMatchesQuickFilters = useCallback((path: string) => {
     if (filterMdOnly && !isMarkdownPath(path)) return false;
@@ -279,14 +363,17 @@ export function FileTree({
         return pathMatchesQuickFilters(node.path) ? node : null;
       }
 
+      const nodeIsStarredAncestor = starredAncestorDirs.has(pathKey(node.path));
+
       if (node.children === null) {
+        if (filterStarOnly && !nodeIsStarredAncestor) return null;
         return node;
       }
 
       const nextChildren = node.children
         .map(visit)
         .filter((child): child is TreeNode => child !== null);
-      if (nextChildren.length === 0) return null;
+      if (nextChildren.length === 0 && !(filterStarOnly && nodeIsStarredAncestor)) return null;
 
       return { ...node, children: nextChildren } as DirectoryNode;
     };
@@ -294,7 +381,7 @@ export function FileTree({
     return nodes
       .map(visit)
       .filter((node): node is TreeNode => node !== null);
-  }, [filterMdOnly, filterStarOnly, pathMatchesQuickFilters]);
+  }, [filterMdOnly, filterStarOnly, pathMatchesQuickFilters, starredAncestorDirs]);
 
   const visibleTreeData = useMemo(() => {
     return filterTreeByQuickFilters(treeData);
@@ -340,57 +427,62 @@ export function FileTree({
   const menuDangerItemClass = `${menuItemClass} text-[var(--accent-error)]`;
   const sectionCardClass = 'rounded-md border border-[var(--explorer-card-border)] bg-[var(--explorer-card-bg)]';
   const sectionHeaderClass = 'w-full flex items-center gap-1 px-2 py-1 text-xs uppercase tracking-wide text-[var(--text-muted)] hover:bg-[var(--explorer-row-hover)]';
-  const fileRowClass = 'grid min-w-0 grid-cols-[13px_minmax(0,1fr)_12px] items-center gap-1 px-1.5 py-1 rounded text-sm cursor-pointer text-[var(--text-secondary)]';
+  const fileRowClass = 'grid min-w-0 grid-cols-[12px_14px_minmax(0,1fr)_14px] items-center gap-1 px-1.5 py-1 rounded text-sm cursor-pointer text-[var(--text-secondary)]';
 
   return (
     <div className="flex flex-col h-full bg-[var(--bg-surface)]">
       <div className="flex items-center justify-between px-3 py-2 border-b border-[var(--bg-divider)]">
         <span className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide">Explorer</span>
-        <div className="flex items-center gap-1">
-          <button
-            type="button"
-            onClick={() => setFilterMdOnly(v => !v)}
-            className={cn(
-              'p-1 rounded transition-colors',
-              filterMdOnly
-                ? 'text-[var(--accent-primary)] bg-[var(--bg-overlay)]'
-                : 'text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-overlay)]'
-            )}
-            title={filterMdOnly ? 'Markdown filter: on' : 'Markdown filter: off'}
-            aria-label={filterMdOnly ? 'Turn off markdown filter' : 'Turn on markdown filter'}
-          >
-            <FileCode2 size={14} />
-          </button>
-          <button
-            onClick={onAddFiles}
-            className="p-1 rounded text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-overlay)]"
-            title="Import files"
-            aria-label="Import files"
-          >
-            <FilePlus size={14} />
-          </button>
-          <button
-            onClick={handlePinDir}
-            className="p-1 rounded text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-overlay)]"
-            title="Pin directory"
-            aria-label="Pin directory"
-          >
-            <FolderPlus size={14} />
-          </button>
-          <button
-            type="button"
-            onClick={() => setFilterStarOnly(v => !v)}
-            className={cn(
-              'p-1 rounded transition-colors',
-              filterStarOnly
-                ? 'text-[var(--accent-warning)] bg-[var(--bg-overlay)]'
-                : 'text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-overlay)]'
-            )}
-            title={filterStarOnly ? 'Star filter: on' : 'Star filter: off'}
-            aria-label={filterStarOnly ? 'Turn off star filter' : 'Turn on star filter'}
-          >
-            <Star size={14} className={filterStarOnly ? 'fill-current' : ''} />
-          </button>
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1">
+            <button
+              onClick={onAddFiles}
+              className="p-1 rounded text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-overlay)]"
+              title="Import files"
+              aria-label="Import files"
+            >
+              <FilePlus size={14} />
+            </button>
+            <button
+              onClick={handlePinDir}
+              className="p-1 rounded text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-overlay)]"
+              title="Pin directory"
+              aria-label="Pin directory"
+            >
+              <FolderPlus size={14} />
+            </button>
+          </div>
+          <span className="h-4 w-px bg-[var(--bg-divider)]" aria-hidden="true" />
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => setFilterMdOnly(v => !v)}
+              className={cn(
+                'p-1 rounded transition-colors',
+                filterMdOnly
+                  ? 'text-[var(--accent-primary)] bg-[var(--bg-overlay)]'
+                  : 'text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-overlay)]'
+              )}
+              title={filterMdOnly ? 'Markdown filter: on' : 'Markdown filter: off'}
+              aria-label={filterMdOnly ? 'Turn off markdown filter' : 'Turn on markdown filter'}
+            >
+              <FileCode2 size={14} />
+            </button>
+            <button
+              type="button"
+              onClick={() => setFilterStarOnly(v => !v)}
+              className={cn(
+                'p-1 rounded transition-colors',
+                filterStarOnly
+                  ? 'text-[var(--accent-warning)] bg-[var(--bg-overlay)]'
+                  : 'text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-overlay)]'
+              )}
+              title={filterStarOnly ? 'Star filter: on' : 'Star filter: off'}
+              aria-label={filterStarOnly ? 'Turn off star filter' : 'Turn on star filter'}
+            >
+              <Star size={14} className={filterStarOnly ? 'fill-current' : ''} />
+            </button>
+          </div>
         </div>
       </div>
 
@@ -411,7 +503,7 @@ export function FileTree({
               onClick={onToggleFilesPanel}
               onContextMenu={e => {
                 e.preventDefault();
-                setContextMenu({ x: e.clientX, y: e.clientY, kind: 'files-panel' });
+                openContextMenu({ x: e.clientX, y: e.clientY, kind: 'files-panel' });
               }}
               className={sectionHeaderClass}
               title={filesPanelOpen ? 'Collapse files' : 'Expand files'}
@@ -446,9 +538,10 @@ export function FileTree({
                         onClick={() => openFile(path)}
                         onContextMenu={e => {
                           e.preventDefault();
-                          setContextMenu({ x: e.clientX, y: e.clientY, kind: 'file', path, starred: isStarred });
+                          openContextMenu({ x: e.clientX, y: e.clientY, kind: 'file', path, starred: isStarred });
                         }}
                       >
+                        <span className="w-3" />
                         <File size={13} />
                         <span
                           className="block min-w-0 overflow-hidden text-ellipsis whitespace-nowrap"
@@ -456,7 +549,7 @@ export function FileTree({
                         >
                           {pathName(path)}
                         </span>
-                        <span className="w-3 text-right">
+                        <span className="w-3.5 text-right justify-self-end">
                           {isStarred ? <Star size={12} className="text-[var(--accent-warning)] fill-current" /> : null}
                         </span>
                       </div>
@@ -485,6 +578,7 @@ export function FileTree({
                 <Tree<TreeNode>
                   data={visibleTreeData}
                   height={height}
+                  width={width}
                   rowHeight={24}
                   childrenAccessor="children"
                   onSelect={handleSelect}
@@ -515,17 +609,18 @@ export function FileTree({
                           e.preventDefault();
                           const normalized = normalizePath(props.node.data.path).toLowerCase();
                           const pinned = pinnedDirs.some(dir => normalizePath(dir).toLowerCase() === normalized);
-                          setContextMenu({ x: e.clientX, y: e.clientY, kind: 'dir', path: props.node.data.path, pinned });
+                          openContextMenu({ x: e.clientX, y: e.clientY, kind: 'dir', path: props.node.data.path, pinned });
                         } else {
                           e.preventDefault();
                           const starred = isStarredPath(props.node.data.path);
-                          setContextMenu({ x: e.clientX, y: e.clientY, kind: 'file', path: props.node.data.path, starred });
+                          openContextMenu({ x: e.clientX, y: e.clientY, kind: 'file', path: props.node.data.path, starred });
                         }
                       }}
                     >
                       <NodeRow
                         {...props}
                         starred={!props.node.data.isDirectory && isStarredPath(props.node.data.path)}
+                        hasStarredDescendant={props.node.data.isDirectory && starredAncestorDirs.has(pathKey(props.node.data.path))}
                       />
                     </div>
                   )}
