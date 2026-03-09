@@ -1,5 +1,5 @@
 ﻿import { useEffect } from 'react';
-import { Code2, Columns2, Eye, Moon, Cherry, Leaf, Save, Circle, Link2, Unlink2, Table2, ListTodo, SquareCode, FoldVertical, ChevronsDownUp } from 'lucide-react';
+import { Code2, Columns2, Eye, Moon, Cherry, Leaf, Save, Circle, Link2, Unlink2, ChevronUp, ChevronDown } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { SaveState } from '../../hooks/useActiveFile';
 import type { MarkdownActionType } from '../editor/SourceEditor';
@@ -14,6 +14,8 @@ interface ToolbarProps {
   isMarkdownFile: boolean;
   sourceSplitEnabled: boolean;
   onToggleSourceSplit: () => void;
+  markdownToolsCollapsed: boolean;
+  onToggleMarkdownToolsCollapsed: () => void;
   isEditable: boolean;
   readonlyReason: string | null;
   theme: Theme;
@@ -69,6 +71,8 @@ export function Toolbar({
   isMarkdownFile,
   sourceSplitEnabled,
   onToggleSourceSplit,
+  markdownToolsCollapsed,
+  onToggleMarkdownToolsCollapsed,
   isEditable,
   readonlyReason,
   theme,
@@ -83,6 +87,7 @@ export function Toolbar({
   const sourceDisabled = !isEditable;
   const showSplitToggle = mode === 'source' && isMarkdownFile;
   const showSyncToggle = showSplitToggle && sourceSplitEnabled;
+  const showMarkdownToolsToggle = mode === 'source' && isMarkdownFile;
   const previewDisabled = activeFileKind === 'text' && isEditable;
 
   useEffect(() => {
@@ -124,7 +129,6 @@ export function Toolbar({
 
   const ThemeIcon = THEME_ICON[theme];
   const displayFileName = fileName ? fileName.split(/[\\/]/).pop() ?? fileName : 'No file open';
-  const showMarkdownActions = mode === 'source' && isMarkdownFile;
 
   const modes: { id: EditorMode; icon: typeof Code2; label: string }[] = [
     { id: 'source', icon: Code2, label: 'Source' },
@@ -154,92 +158,33 @@ export function Toolbar({
       </div>
 
       <div className="justify-self-center">
-        <div className="relative inline-block">
-          {showMarkdownActions ? (
-            <div
-              className="absolute right-full mr-10 top-1/2 -translate-y-1/2 flex items-center gap-0.5"
-            >
-              <button
-                onClick={() => onMarkdownAction('insert-table')}
-                title="Insert table (Ctrl+Alt+T)"
-                aria-label="Insert table"
-                className="p-1.5 rounded hover:bg-[var(--bg-overlay)]"
-                style={{ color: 'var(--text-secondary)' }}
-              >
-                <Table2 size={13} />
-              </button>
-              <button
-                onClick={() => onMarkdownAction('insert-task-list')}
-                title="Insert task list (Ctrl+Alt+L)"
-                aria-label="Insert task list"
-                className="p-1.5 rounded hover:bg-[var(--bg-overlay)]"
-                style={{ color: 'var(--text-secondary)' }}
-              >
-                <ListTodo size={13} />
-              </button>
-              <button
-                onClick={() => onMarkdownAction('insert-code-block')}
-                title="Insert code block (Ctrl+Alt+K)"
-                aria-label="Insert code block"
-                className="p-1.5 rounded hover:bg-[var(--bg-overlay)]"
-                style={{ color: 'var(--text-secondary)' }}
-              >
-                <SquareCode size={13} />
-              </button>
-              <span
-                className="mx-0.5 h-4 w-px"
-                style={{ backgroundColor: 'var(--bg-divider)' }}
-                aria-hidden="true"
-              />
-              <button
-                onClick={() => onMarkdownAction('fold-heading')}
-                title="Fold heading at cursor (Ctrl+Alt+F)"
-                aria-label="Fold heading"
-                className="p-1.5 rounded hover:bg-[var(--bg-overlay)]"
-                style={{ color: 'var(--text-secondary)' }}
-              >
-                <FoldVertical size={13} />
-              </button>
-              <button
-                onClick={() => onMarkdownAction('unfold-all')}
-                title="Unfold all headings (Ctrl+Alt+U)"
-                aria-label="Unfold all headings"
-                className="p-1.5 rounded hover:bg-[var(--bg-overlay)]"
-                style={{ color: 'var(--text-secondary)' }}
-              >
-                <ChevronsDownUp size={13} />
-              </button>
-            </div>
-          ) : null}
-
-          <div
-            className="flex items-center gap-0.5 rounded p-0.5 border"
-            style={{ backgroundColor: 'var(--bg-overlay)', borderColor: 'var(--bg-divider)' }}
-          >
-          {modes.map(({ id, icon: Icon, label }) => {
-            const disabled = id === 'source' ? sourceDisabled : id === 'preview' ? previewDisabled : false;
-            return (
-              <button
-                key={id}
-                onClick={() => !disabled && onModeChange(id)}
-                aria-pressed={mode === id}
-                disabled={disabled}
-                title={label}
-                className={cn(
-                  'flex items-center gap-1 px-2.5 py-1 rounded text-xs font-medium transition-colors',
-                  mode === id
-                    ? 'text-[var(--text-primary)]'
-                    : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]',
-                  disabled && 'opacity-50 cursor-not-allowed hover:text-[var(--text-muted)]',
-                )}
-                style={mode === id ? { backgroundColor: 'var(--bg-surface)' } : {}}
-              >
-                <Icon size={13} />
-                <span>{label}</span>
-              </button>
-            );
-          })}
-          </div>
+        <div
+          className="flex items-center gap-0.5 rounded p-0.5 border"
+          style={{ backgroundColor: 'var(--bg-overlay)', borderColor: 'var(--bg-divider)' }}
+        >
+            {modes.map(({ id, icon: Icon, label }) => {
+              const disabled = id === 'source' ? sourceDisabled : id === 'preview' ? previewDisabled : false;
+              return (
+                <button
+                  key={id}
+                  onClick={() => !disabled && onModeChange(id)}
+                  aria-pressed={mode === id}
+                  disabled={disabled}
+                  title={label}
+                  className={cn(
+                    'flex items-center gap-1 px-2.5 py-1 rounded text-xs font-medium transition-colors',
+                    mode === id
+                      ? 'text-[var(--text-primary)]'
+                      : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]',
+                    disabled && 'opacity-50 cursor-not-allowed hover:text-[var(--text-muted)]',
+                  )}
+                  style={mode === id ? { backgroundColor: 'var(--bg-surface)' } : {}}
+                >
+                  <Icon size={13} />
+                  <span>{label}</span>
+                </button>
+              );
+            })}
         </div>
       </div>
 
@@ -251,6 +196,17 @@ export function Toolbar({
         )}
         {(showSplitToggle || showSyncToggle) && (
           <div className="flex items-center gap-0.5">
+            {showMarkdownToolsToggle && (
+              <button
+                onClick={onToggleMarkdownToolsCollapsed}
+                title={markdownToolsCollapsed ? 'Show Markdown tools' : 'Hide Markdown tools'}
+                aria-label={markdownToolsCollapsed ? 'Show Markdown tools' : 'Hide Markdown tools'}
+                className="p-1.5 rounded hover:bg-[var(--bg-overlay)]"
+                style={{ color: 'var(--text-secondary)' }}
+              >
+                {markdownToolsCollapsed ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
+              </button>
+            )}
             {showSyncToggle && (
               <button
                 onClick={onToggleSyncScroll}

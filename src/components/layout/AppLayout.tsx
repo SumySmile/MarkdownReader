@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Table2, ListTodo, SquareCode, FoldVertical, UnfoldVertical } from 'lucide-react';
 import { FileTree } from '../file-tree/FileTree';
 import { SourceEditor } from '../editor/SourceEditor';
 import type { MarkdownActionType, MarkdownEditorAction } from '../editor/SourceEditor';
@@ -26,6 +27,7 @@ interface AppLayoutProps {
   onCopyDirectoryPath: (path: string) => Promise<void> | void;
   onOpenContainingFolder: (path: string) => Promise<void> | void;
   onOpenDirectory: (path: string) => Promise<void> | void;
+  onCreateFile: (dirPath: string, fileName: string) => Promise<void> | void;
   onRenameFile: (path: string, nextBaseName: string) => Promise<void> | void;
   onDuplicateFile: (path: string, nextBaseName: string) => Promise<void> | void;
   onDeleteFile: (path: string) => Promise<void> | void;
@@ -37,6 +39,7 @@ interface AppLayoutProps {
   saveState: SaveState;
   mode: EditorMode;
   sourceSplitEnabled: boolean;
+  markdownToolsCollapsed: boolean;
   theme: Theme;
   syncScroll: boolean;
   sidebarVisible: boolean;
@@ -45,6 +48,7 @@ interface AppLayoutProps {
   onContentChange: (text: string) => void;
   onModeChange: (mode: EditorMode) => void;
   onToggleSourceSplit: () => void;
+  onToggleMarkdownToolsCollapsed: () => void;
   onThemeToggle: () => void;
   onToggleSyncScroll: () => void;
   onToggleSidebar: () => void;
@@ -85,6 +89,7 @@ export function AppLayout({
   onCopyDirectoryPath,
   onOpenContainingFolder,
   onOpenDirectory,
+  onCreateFile,
   onRenameFile,
   onDuplicateFile,
   onDeleteFile,
@@ -96,6 +101,7 @@ export function AppLayout({
   saveState,
   mode,
   sourceSplitEnabled,
+  markdownToolsCollapsed,
   theme,
   syncScroll,
   sidebarVisible,
@@ -104,6 +110,7 @@ export function AppLayout({
   onContentChange,
   onModeChange,
   onToggleSourceSplit,
+  onToggleMarkdownToolsCollapsed,
   onThemeToggle,
   onToggleSyncScroll,
   onToggleSidebar,
@@ -116,6 +123,7 @@ export function AppLayout({
   const previewKind: FileKind = activeFileKind ?? 'markdown';
   const isMarkdownFile = previewKind === 'markdown';
   const enableSplitPane = mode === 'source' && isMarkdownFile && sourceSplitEnabled;
+  const showMarkdownActionBar = !!activeFile && mode === 'source' && isMarkdownFile;
   const triggerMarkdownAction = (type: MarkdownActionType) => {
     setMarkdownAction({ type, seq: Date.now() });
   };
@@ -165,6 +173,7 @@ export function AppLayout({
               onCopyDirectoryPath={onCopyDirectoryPath}
               onOpenContainingFolder={onOpenContainingFolder}
               onOpenDirectory={onOpenDirectory}
+              onCreateFile={onCreateFile}
               onRenameFile={onRenameFile}
               onDuplicateFile={onDuplicateFile}
               onDeleteFile={onDeleteFile}
@@ -184,7 +193,9 @@ export function AppLayout({
           activeFileKind={activeFileKind}
           isMarkdownFile={isMarkdownFile}
           sourceSplitEnabled={sourceSplitEnabled}
+          markdownToolsCollapsed={markdownToolsCollapsed}
           onToggleSourceSplit={onToggleSourceSplit}
+          onToggleMarkdownToolsCollapsed={onToggleMarkdownToolsCollapsed}
           isEditable={activeFileEditable}
           readonlyReason={readonlyReason}
           theme={theme}
@@ -196,6 +207,65 @@ export function AppLayout({
           fileName={activeFile}
           onMarkdownAction={triggerMarkdownAction}
         />
+        {showMarkdownActionBar && !markdownToolsCollapsed && (
+            <div
+              className="flex items-center px-3 py-1 border-b"
+              style={{ borderColor: 'var(--bg-divider)', backgroundColor: 'var(--bg-base)' }}
+            >
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => triggerMarkdownAction('insert-table')}
+                  title="Insert table (Ctrl+Alt+T)"
+                  aria-label="Insert table"
+                  className="p-1.5 rounded hover:bg-[var(--bg-overlay)]"
+                  style={{ color: 'var(--text-secondary)' }}
+                >
+                  <Table2 size={13} />
+                </button>
+                <button
+                  onClick={() => triggerMarkdownAction('insert-task-list')}
+                  title="Insert task list (Ctrl+Alt+L)"
+                  aria-label="Insert task list"
+                  className="p-1.5 rounded hover:bg-[var(--bg-overlay)]"
+                  style={{ color: 'var(--text-secondary)' }}
+                >
+                  <ListTodo size={13} />
+                </button>
+                <button
+                  onClick={() => triggerMarkdownAction('insert-code-block')}
+                  title="Insert code block (Ctrl+Alt+K)"
+                  aria-label="Insert code block"
+                  className="p-1.5 rounded hover:bg-[var(--bg-overlay)]"
+                  style={{ color: 'var(--text-secondary)' }}
+                >
+                  <SquareCode size={13} />
+                </button>
+                <span
+                  className="mx-1 h-4 w-px"
+                  style={{ backgroundColor: 'var(--bg-divider)' }}
+                  aria-hidden="true"
+                />
+                <button
+                  onClick={() => triggerMarkdownAction('fold-heading')}
+                  title="Fold heading at cursor (Ctrl+Alt+F)"
+                  aria-label="Fold heading"
+                  className="p-1.5 rounded hover:bg-[var(--bg-overlay)]"
+                  style={{ color: 'var(--text-secondary)' }}
+                >
+                  <FoldVertical size={13} />
+                </button>
+                <button
+                  onClick={() => triggerMarkdownAction('unfold-all')}
+                  title="Unfold all headings (Ctrl+Alt+U)"
+                  aria-label="Unfold all headings"
+                  className="p-1.5 rounded hover:bg-[var(--bg-overlay)]"
+                  style={{ color: 'var(--text-secondary)' }}
+                >
+                  <UnfoldVertical size={13} />
+                </button>
+              </div>
+            </div>
+        )}
         <div className="flex-1 overflow-hidden">
           <ErrorBoundary
             resetKeys={[activeFile, mode, sourceSplitEnabled, theme, editorErrorNonce]}

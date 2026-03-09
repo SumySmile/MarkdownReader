@@ -18,6 +18,7 @@ A desktop Markdown editor based on Tauri + React + TypeScript.
     - Insert table, task list, and fenced code block.
     - Fold heading at cursor and unfold all headings.
     - Keyboard shortcuts: `Ctrl+Alt+T/L/K/F/U`.
+    - Quick-action row can be collapsed/expanded from the top toolbar and the state is persisted.
 - Sidebar supports both:
   - Folder explorer (for openable files in pinned directories).
   - File panel (imported files list, independent from folder tree).
@@ -44,6 +45,7 @@ A desktop Markdown editor based on Tauri + React + TypeScript.
   - `Open Containing Folder` works for file rows in both `Files` and `Folders`.
   - On Windows/macOS it reveals the target file in system explorer; on Linux it opens the parent directory.
   - Right-click any directory node: copy path / open directory / refresh (plus unpin when the directory is pinned).
+  - Right-click directory supports `New File`; when no extension is provided, `.md` is appended by default.
   - Context menu is anchored to the selected row (prefers right side, falls back to left when needed) and stays in viewport.
   - The right-click target row is outlined so the action target is always clear.
   - Right-click target outline is layered above neighboring row hover states to avoid border clipping.

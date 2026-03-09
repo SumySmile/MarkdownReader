@@ -39,6 +39,7 @@ interface FileTreeProps {
   onCopyDirectoryPath: (path: string) => Promise<void> | void;
   onOpenContainingFolder: (path: string) => Promise<void> | void;
   onOpenDirectory: (path: string) => Promise<void> | void;
+  onCreateFile: (dirPath: string, fileName: string) => Promise<void> | void;
   onRenameFile: (path: string, nextBaseName: string) => Promise<void> | void;
   onDuplicateFile: (path: string, nextBaseName: string) => Promise<void> | void;
   onDeleteFile: (path: string) => Promise<void> | void;
@@ -71,11 +72,17 @@ interface DuplicateDialogState {
   error: string | null;
 }
 
+interface NewFileDialogState {
+  dirPath: string;
+  value: string;
+  error: string | null;
+}
+
 function estimateContextMenuSize(kind: ContextMenuKind, source?: 'files' | 'folders'): { width: number; height: number } {
   if (kind === 'file') {
     return source === 'files' ? { width: 178, height: 290 } : { width: 170, height: 220 };
   }
-  if (kind === 'dir') return { width: 170, height: 170 };
+  if (kind === 'dir') return { width: 170, height: 198 };
   return { width: 162, height: 50 };
 }
 
@@ -248,6 +255,7 @@ export function FileTree({
   onCopyDirectoryPath,
   onOpenContainingFolder,
   onOpenDirectory,
+  onCreateFile,
   onRenameFile,
   onDuplicateFile,
   onDeleteFile,
@@ -266,8 +274,10 @@ export function FileTree({
   const [contextMenu, setContextMenu] = useState<ContextMenuState>(null);
   const [renameDialog, setRenameDialog] = useState<RenameDialogState | null>(null);
   const [duplicateDialog, setDuplicateDialog] = useState<DuplicateDialogState | null>(null);
+  const [newFileDialog, setNewFileDialog] = useState<NewFileDialogState | null>(null);
   const renameInputRef = useRef<HTMLInputElement>(null);
   const duplicateInputRef = useRef<HTMLInputElement>(null);
+  const newFileInputRef = useRef<HTMLInputElement>(null);
   const contextMenuRef = useRef<HTMLDivElement>(null);
   const contextMenuAnchorRectRef = useRef<DOMRect | undefined>(undefined);
   const contextMenuSeqRef = useRef(0);
@@ -275,6 +285,7 @@ export function FileTree({
   const syncingTreeOpenStateRef = useRef(false);
   const renameOpen = !!renameDialog;
   const duplicateOpen = !!duplicateDialog;
+  const newFileOpen = !!newFileDialog;
 
   const [treeData, setTreeData] = useState<TreeNode[]>([]);
 
@@ -482,6 +493,18 @@ export function FileTree({
     return () => window.clearTimeout(id);
   }, [duplicateOpen]);
 
+  useEffect(() => {
+    if (!newFileOpen) return;
+    const id = window.setTimeout(() => {
+      const input = newFileInputRef.current;
+      if (!input) return;
+      input.focus();
+      const end = input.value.length;
+      input.setSelectionRange(0, end);
+    }, 0);
+    return () => window.clearTimeout(id);
+  }, [newFileOpen]);
+
   const openRenameDialog = useCallback((path: string) => {
     const oldName = pathName(path);
     const { baseName, extension } = splitBaseNameAndExtension(oldName);
@@ -563,6 +586,36 @@ export function FileTree({
       setDuplicateDialog(prev => prev ? { ...prev, error: message } : prev);
     }
   }, [duplicateDialog, handleRefreshDir, onDuplicateFile]);
+
+  const openNewFileDialog = useCallback((dirPath: string) => {
+    setNewFileDialog({
+      dirPath,
+      value: 'new.md',
+      error: null,
+    });
+  }, []);
+
+  const submitNewFile = useCallback(async () => {
+    if (!newFileDialog) return;
+    const nextName = newFileDialog.value.trim();
+    if (!nextName) {
+      setNewFileDialog(prev => prev ? { ...prev, error: 'Name cannot be empty.' } : prev);
+      return;
+    }
+    if (nextName.includes('/') || nextName.includes('\\')) {
+      setNewFileDialog(prev => prev ? { ...prev, error: 'Name cannot contain path separators.' } : prev);
+      return;
+    }
+
+    try {
+      await Promise.resolve(onCreateFile(newFileDialog.dirPath, nextName));
+      await handleRefreshDir(newFileDialog.dirPath);
+      setNewFileDialog(null);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Create file failed.';
+      setNewFileDialog(prev => prev ? { ...prev, error: message } : prev);
+    }
+  }, [handleRefreshDir, newFileDialog, onCreateFile]);
 
   const starredPathSet = useMemo(() => {
     return new Set(starredFiles.map(pathKey));
@@ -917,6 +970,19 @@ export function FileTree({
               <button
                 className={menuItemClass}
                 onClick={() => {
+                  openNewFileDialog(contextMenu.path);
+                  setContextMenu(null);
+                }}
+              >
+                <span className="inline-flex items-center gap-1">
+                  <FilePlus size={12} />
+                  New File
+                </span>
+              </button>
+              <div className="my-1 border-t border-[var(--bg-divider)]" />
+              <button
+                className={menuItemClass}
+                onClick={() => {
                   Promise.resolve(onCopyDirectoryPath(contextMenu.path)).finally(() => setContextMenu(null));
                 }}
               >
@@ -1192,6 +1258,56 @@ export function FileTree({
                 onClick={() => { void submitDuplicate(); }}
               >
                 Duplicate
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {newFileDialog && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/30"
+          onClick={() => setNewFileDialog(null)}
+        >
+          <div
+            className="w-[420px] max-w-[92vw] rounded border border-[var(--bg-divider)] bg-[var(--bg-surface)] p-3 shadow-lg"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="mb-2 text-sm font-medium text-[var(--text-primary)]">New File</div>
+            <div className="mb-2 text-xs text-[var(--text-muted)] truncate" title={newFileDialog.dirPath}>
+              {newFileDialog.dirPath}
+            </div>
+            <input
+              ref={newFileInputRef}
+              value={newFileDialog.value}
+              onChange={e => setNewFileDialog(prev => prev ? { ...prev, value: e.target.value, error: null } : prev)}
+              onKeyDown={e => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  submitNewFile();
+                }
+                if (e.key === 'Escape') {
+                  e.preventDefault();
+                  setNewFileDialog(null);
+                }
+              }}
+              className="w-full rounded border border-[var(--bg-divider)] bg-[var(--bg-base)] px-2 py-1.5 text-sm text-[var(--text-primary)] outline-none focus:ring-1 focus:ring-[var(--accent-primary)]"
+            />
+            {newFileDialog.error ? (
+              <div className="mt-2 text-xs text-[var(--accent-error)]">{newFileDialog.error}</div>
+            ) : null}
+            <div className="mt-3 flex justify-end gap-2">
+              <button
+                className="rounded border border-[var(--bg-divider)] px-2.5 py-1 text-xs text-[var(--text-secondary)] hover:bg-[var(--bg-overlay)]"
+                onClick={() => setNewFileDialog(null)}
+              >
+                Cancel
+              </button>
+              <button
+                className="rounded bg-[var(--accent-primary)] px-2.5 py-1 text-xs text-[var(--bg-base)]"
+                onClick={() => { void submitNewFile(); }}
+              >
+                Create
               </button>
             </div>
           </div>

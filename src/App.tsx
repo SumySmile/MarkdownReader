@@ -50,6 +50,19 @@ function getAncestorDirs(filePath: string): string[] {
   return ancestors;
 }
 
+function mergeUniqueNormalizedPaths(paths: string[]): string[] {
+  const seen = new Set<string>();
+  const result: string[] = [];
+  for (const item of paths) {
+    const normalized = normalizePath(item);
+    const key = normalized.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    result.push(normalized);
+  }
+  return result;
+}
+
 function splitBaseNameAndExtension(fileName: string): { baseName: string; extension: string } {
   const lastDot = fileName.lastIndexOf('.');
   if (lastDot <= 0 || lastDot === fileName.length - 1) {
@@ -94,6 +107,7 @@ function App() {
   const [filesPanelOpen, setFilesPanelOpen] = useState<boolean>(true);
   const [mode, setMode] = useState<EditorMode>('source');
   const [sourceSplitEnabled, setSourceSplitEnabled] = useState<boolean>(true);
+  const [markdownToolsCollapsed, setMarkdownToolsCollapsed] = useState<boolean>(false);
   const [theme, setTheme] = useState<Theme>('gray');
   const [syncScroll, setSyncScroll] = useState<boolean>(true);
   const [sidebarVisible, setSidebarVisible] = useState<boolean>(true);
@@ -132,6 +146,15 @@ function App() {
     } else if (reason) {
       setMode('preview');
       storeSet('editorMode', 'preview');
+    }
+
+    const ancestors = getAncestorDirs(normalized);
+    if (ancestors.length) {
+      setExpandedDirs(prev => {
+        const next = mergeUniqueNormalizedPaths([...prev, ...ancestors]);
+        void storeSet('expandedDirs', next);
+        return next;
+      });
     }
   }, [openFile]);
 
@@ -173,6 +196,9 @@ function App() {
 
       const savedTheme = await storeGet<Theme>('theme');
       if (savedTheme) setTheme(savedTheme);
+
+      const savedMarkdownToolsCollapsed = await storeGet<boolean>('markdownToolsCollapsed');
+      if (typeof savedMarkdownToolsCollapsed === 'boolean') setMarkdownToolsCollapsed(savedMarkdownToolsCollapsed);
 
       const savedSyncScroll = await storeGet<boolean>('syncScroll');
       if (typeof savedSyncScroll === 'boolean') setSyncScroll(savedSyncScroll);
@@ -363,6 +389,12 @@ function App() {
     await storeSet('starredFiles', nextStars);
   };
 
+  const handleToggleMarkdownToolsCollapsed = async () => {
+    const next = !markdownToolsCollapsed;
+    setMarkdownToolsCollapsed(next);
+    await storeSet('markdownToolsCollapsed', next);
+  };
+
   const handleToggleFilesPanel = async () => {
     const next = !filesPanelOpen;
     setFilesPanelOpen(next);
@@ -499,6 +531,30 @@ function App() {
     }
   };
 
+  const handleCreateFile = async (dirPath: string, fileName: string) => {
+    const dir = normalizePath(dirPath);
+    const trimmed = fileName.trim();
+    if (!trimmed) throw new Error('File name cannot be empty.');
+    if (trimmed.includes('/') || trimmed.includes('\\')) throw new Error('Invalid file name.');
+    const resolvedName = trimmed.includes('.') ? trimmed : `${trimmed}.md`;
+    const nextPath = `${dir.replace(/\/+$/, '')}/${resolvedName}`;
+    try {
+      let targetExists = false;
+      try {
+        await readFile(nextPath);
+        targetExists = true;
+      } catch {
+        // continue
+      }
+      if (targetExists) throw new Error('A file with this name already exists.');
+      await writeFile(nextPath, '');
+      await openFileByPath(nextPath);
+    } catch (error) {
+      console.error('[App] create file failed', error);
+      throw new Error(toErrorMessage(error, 'Create file failed.'));
+    }
+  };
+
   const handleDeleteFile = async (path: string) => {
     const normalized = normalizePath(path);
     await deletePath(normalized);
@@ -546,6 +602,7 @@ function App() {
       onCopyDirectoryPath={handleCopyDirectoryPath}
       onOpenContainingFolder={handleOpenContainingFolder}
       onOpenDirectory={handleOpenDirectory}
+      onCreateFile={handleCreateFile}
       onRenameFile={handleRenameFile}
       onDuplicateFile={handleDuplicateFile}
       onDeleteFile={handleDeleteFile}
@@ -557,6 +614,7 @@ function App() {
       saveState={saveState}
       mode={mode}
       sourceSplitEnabled={sourceSplitEnabled}
+      markdownToolsCollapsed={markdownToolsCollapsed}
       theme={theme}
       syncScroll={syncScroll}
       sidebarVisible={sidebarVisible}
@@ -565,6 +623,7 @@ function App() {
       onContentChange={handleContentChange}
       onModeChange={handleModeChange}
       onToggleSourceSplit={handleToggleSourceSplit}
+      onToggleMarkdownToolsCollapsed={handleToggleMarkdownToolsCollapsed}
       onThemeToggle={handleThemeToggle}
       onToggleSyncScroll={handleToggleSyncScroll}
       onToggleSidebar={handleToggleSidebar}
