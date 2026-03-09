@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback, useMemo, type ReactNode } from 'react';
-import { Tree, NodeApi, NodeRendererProps } from 'react-arborist';
+import { Tree, TreeApi, NodeApi, NodeRendererProps } from 'react-arborist';
 import { useFileTreeStore, TreeNode, DirectoryNode } from '../../stores/fileTreeStore';
 import { pickDirectory } from '../../lib/fs';
 import {
@@ -73,22 +73,21 @@ interface DuplicateDialogState {
 
 function estimateContextMenuSize(kind: ContextMenuKind, source?: 'files' | 'folders'): { width: number; height: number } {
   if (kind === 'file') {
-    return source === 'files' ? { width: 200, height: 340 } : { width: 200, height: 260 };
+    return source === 'files' ? { width: 178, height: 290 } : { width: 170, height: 220 };
   }
-  if (kind === 'dir') return { width: 190, height: 190 };
-  return { width: 180, height: 50 };
+  if (kind === 'dir') return { width: 170, height: 170 };
+  return { width: 162, height: 50 };
 }
 
 function clampContextMenuPoint(
   x: number,
   y: number,
-  kind: ContextMenuKind,
-  source?: 'files' | 'folders'
+  width: number,
+  height: number
 ): { x: number; y: number } {
   const margin = 8;
-  const estimated = estimateContextMenuSize(kind, source);
-  const maxX = Math.max(margin, window.innerWidth - estimated.width - margin);
-  const maxY = Math.max(margin, window.innerHeight - estimated.height - margin);
+  const maxX = Math.max(margin, window.innerWidth - width - margin);
+  const maxY = Math.max(margin, window.innerHeight - height - margin);
   return {
     x: Math.max(margin, Math.min(x, maxX)),
     y: Math.max(margin, Math.min(y, maxY)),
@@ -97,15 +96,32 @@ function clampContextMenuPoint(
 
 function anchorContextMenu(
   menu: Exclude<ContextMenuState, null>,
-  anchorRect: DOMRect
+  anchorRect?: DOMRect,
+  measuredSize?: { width: number; height: number }
 ): { x: number; y: number } {
   const margin = 8;
   const source = menu.kind === 'file' ? menu.source : undefined;
-  const estimated = estimateContextMenuSize(menu.kind, source);
-  const preferredX = anchorRect.left + 12;
-  const canOpenBelow = anchorRect.bottom + estimated.height + margin <= window.innerHeight;
-  const preferredY = canOpenBelow ? anchorRect.bottom + 2 : anchorRect.top - estimated.height - 2;
-  return clampContextMenuPoint(preferredX, preferredY, menu.kind, source);
+  const estimated = measuredSize ?? estimateContextMenuSize(menu.kind, source);
+  const gap = 3;
+  const pointerX = menu.x;
+
+  // Keep menu on the right side of the mouse focus by default.
+  const rightX = pointerX + gap;
+  const leftFallbackX = pointerX - estimated.width - gap;
+  const preferredX = rightX + estimated.width + margin <= window.innerWidth ? rightX : leftFallbackX;
+
+  // Vertical placement must snap to row edges only: below edge or above edge.
+  let preferredY = menu.y;
+  if (anchorRect) {
+    const belowY = anchorRect.bottom + 1;
+    const aboveY = anchorRect.top - estimated.height - 1;
+    const canOpenBelow = belowY + estimated.height + margin <= window.innerHeight;
+    preferredY = canOpenBelow ? belowY : aboveY;
+  } else if (preferredY + estimated.height + margin > window.innerHeight) {
+    preferredY = window.innerHeight - estimated.height - margin;
+  }
+
+  return clampContextMenuPoint(preferredX, preferredY, estimated.width, estimated.height);
 }
 
 function pathName(path: string): string {
@@ -156,6 +172,7 @@ function NodeRow({
 
   return (
     <div
+      data-menu-anchor="true"
       style={style}
       className={cn(
         'grid w-full min-w-0 grid-cols-[12px_14px_minmax(0,1fr)_14px] items-center gap-1 overflow-hidden px-2 py-0.5 rounded cursor-pointer select-none text-sm',
@@ -181,6 +198,14 @@ function NodeRow({
       </span>
     </div>
   );
+}
+
+function resolveMenuAnchor(currentTarget: HTMLElement, target: EventTarget | null): HTMLElement {
+  if (target instanceof HTMLElement) {
+    const rowAnchor = target.closest<HTMLElement>('[data-menu-anchor="true"]');
+    if (rowAnchor && currentTarget.contains(rowAnchor)) return rowAnchor;
+  }
+  return currentTarget;
 }
 
 function updateNodeChildren(nodes: TreeNode[], path: string, children: TreeNode[]): TreeNode[] {
@@ -243,6 +268,11 @@ export function FileTree({
   const [duplicateDialog, setDuplicateDialog] = useState<DuplicateDialogState | null>(null);
   const renameInputRef = useRef<HTMLInputElement>(null);
   const duplicateInputRef = useRef<HTMLInputElement>(null);
+  const contextMenuRef = useRef<HTMLDivElement>(null);
+  const contextMenuAnchorRectRef = useRef<DOMRect | undefined>(undefined);
+  const contextMenuSeqRef = useRef(0);
+  const treeRef = useRef<TreeApi<TreeNode> | undefined>(undefined);
+  const syncingTreeOpenStateRef = useRef(false);
   const renameOpen = !!renameDialog;
   const duplicateOpen = !!duplicateDialog;
 
@@ -294,6 +324,7 @@ export function FileTree({
   }, []);
 
   const handleToggle = useCallback(async (id: string) => {
+    if (syncingTreeOpenStateRef.current) return;
     const normalized = normalizePath(id);
     const lower = normalized.toLowerCase();
     const nextExpanded = expandedDirs.some(path => path.toLowerCase() === lower)
@@ -348,6 +379,21 @@ export function FileTree({
     };
   }, [expandedDirs, treeData, getOrFetch]);
 
+  useEffect(() => {
+    const tree = treeRef.current;
+    if (!tree || !expandedDirs.length) return;
+    syncingTreeOpenStateRef.current = true;
+    try {
+      for (const path of expandedDirs) {
+        tree.open(normalizePath(path));
+      }
+    } finally {
+      requestAnimationFrame(() => {
+        syncingTreeOpenStateRef.current = false;
+      });
+    }
+  }, [expandedDirs, treeData]);
+
   const handlePinDir = useCallback(async () => {
     const path = await pickDirectory();
     if (path) onPinDir(normalizePath(path));
@@ -373,11 +419,43 @@ export function FileTree({
     return () => document.removeEventListener('click', closeContextMenu);
   }, [contextMenu, closeContextMenu]);
 
+  useEffect(() => {
+    if (!contextMenu) return;
+    const handleViewportOrContainerChange = () => closeContextMenu();
+    window.addEventListener('resize', handleViewportOrContainerChange);
+    document.addEventListener('scroll', handleViewportOrContainerChange, true);
+    return () => {
+      window.removeEventListener('resize', handleViewportOrContainerChange);
+      document.removeEventListener('scroll', handleViewportOrContainerChange, true);
+    };
+  }, [contextMenu, closeContextMenu]);
+
   const openContextMenu = useCallback((menu: Exclude<ContextMenuState, null>, anchorEl?: HTMLElement | null) => {
+    const seq = ++contextMenuSeqRef.current;
+    const anchorRect = anchorEl?.getBoundingClientRect();
+    contextMenuAnchorRectRef.current = anchorRect;
     const next = anchorEl
-      ? anchorContextMenu(menu, anchorEl.getBoundingClientRect())
-      : clampContextMenuPoint(menu.x, menu.y, menu.kind, menu.kind === 'file' ? menu.source : undefined);
+      ? anchorContextMenu(menu, anchorRect)
+      : clampContextMenuPoint(
+        menu.x,
+        menu.y,
+        estimateContextMenuSize(menu.kind, menu.kind === 'file' ? menu.source : undefined).width,
+        estimateContextMenuSize(menu.kind, menu.kind === 'file' ? menu.source : undefined).height
+      );
     setContextMenu({ ...menu, x: next.x, y: next.y });
+
+    requestAnimationFrame(() => {
+      if (contextMenuSeqRef.current !== seq) return;
+      const menuEl = contextMenuRef.current;
+      if (!menuEl) return;
+      const measured = { width: menuEl.offsetWidth, height: menuEl.offsetHeight };
+      const corrected = anchorContextMenu(menu, contextMenuAnchorRectRef.current, measured);
+      setContextMenu(prev => {
+        if (!prev || contextMenuSeqRef.current !== seq) return prev;
+        if (prev.x === corrected.x && prev.y === corrected.y) return prev;
+        return { ...prev, x: corrected.x, y: corrected.y };
+      });
+    });
   }, []);
 
   useEffect(() => {
@@ -561,7 +639,6 @@ export function FileTree({
   const visibleTreeData = useMemo(() => {
     return filterTreeByQuickFilters(treeData);
   }, [filterTreeByQuickFilters, treeData]);
-
   const searchMatch = useCallback((node: NodeApi<TreeNode>, term: string) => {
     if (!term) return true;
     return node.data.name.toLowerCase().includes(term.toLowerCase());
@@ -598,11 +675,17 @@ export function FileTree({
     return () => window.clearTimeout(id);
   }, [normalizedActive, filesPanelOpen, treeData]);
 
-  const menuItemClass = 'w-full text-left px-2.5 py-1 text-xs text-[var(--text-secondary)] hover:bg-[var(--bg-divider)]';
+  const menuItemClass = 'w-full text-left px-2 py-1 text-xs whitespace-nowrap text-[var(--text-secondary)] hover:bg-[var(--bg-divider)]';
   const menuDangerItemClass = `${menuItemClass} text-[var(--accent-error)]`;
   const sectionCardClass = 'rounded-md border border-[var(--explorer-card-border)] bg-[var(--explorer-card-bg)]';
   const sectionHeaderClass = 'w-full flex items-center gap-1 px-2 py-1 text-xs uppercase tracking-wide text-[var(--text-muted)] hover:bg-[var(--explorer-row-hover)]';
   const fileRowClass = 'grid min-w-0 grid-cols-[12px_14px_minmax(0,1fr)_14px] items-center gap-1 px-1.5 py-1 rounded text-sm cursor-pointer text-[var(--text-secondary)] border border-transparent';
+  const contextMenuWidth = contextMenu
+    ? estimateContextMenuSize(
+      contextMenu.kind,
+      contextMenu.kind === 'file' ? contextMenu.source : undefined
+    ).width
+    : 170;
 
   return (
     <div className="flex flex-col h-full bg-[var(--bg-surface)]">
@@ -755,6 +838,7 @@ export function FileTree({
                 />
               ) : (
                 <Tree<TreeNode>
+                  ref={treeRef}
                   data={visibleTreeData}
                   height={height}
                   width={width}
@@ -775,13 +859,17 @@ export function FileTree({
                       ref={!props.node.data.isDirectory && normalizePath(props.node.data.path) === normalizedActive ? activeRowRef : null}
                       data-id={props.node.data.path}
                       className={cn(
-                        'min-w-0 overflow-hidden rounded',
+                        'relative min-w-0 overflow-hidden rounded',
                         !props.node.data.isDirectory && normalizePath(props.node.data.path) === normalizedActive && 'bg-[var(--explorer-row-active)]',
+                        props.node.data.isDirectory
+                        && contextMenu?.kind === 'dir'
+                        && pathKey(contextMenu.path) === pathKey(props.node.data.path)
+                        && 'z-10 ring-1 ring-[var(--accent-primary)]',
                         !props.node.data.isDirectory
                         && contextMenu?.kind === 'file'
                         && contextMenu.source === 'folders'
                         && pathKey(contextMenu.path) === pathKey(props.node.data.path)
-                        && 'ring-1 ring-[var(--accent-primary)]'
+                        && 'z-10 ring-1 ring-[var(--accent-primary)]'
                       )}
                       onClick={() => {
                         if (!props.node.data.isDirectory && isOpenablePath(props.node.data.path)) {
@@ -789,15 +877,16 @@ export function FileTree({
                         }
                       }}
                       onContextMenu={e => {
+                        const anchorEl = resolveMenuAnchor(e.currentTarget, e.target);
                         if (props.node.data.isDirectory) {
                           e.preventDefault();
                           const normalized = normalizePath(props.node.data.path).toLowerCase();
                           const pinned = pinnedDirs.some(dir => normalizePath(dir).toLowerCase() === normalized);
-                          openContextMenu({ x: e.clientX, y: e.clientY, kind: 'dir', path: props.node.data.path, pinned }, e.currentTarget);
+                          openContextMenu({ x: e.clientX, y: e.clientY, kind: 'dir', path: props.node.data.path, pinned }, anchorEl);
                         } else {
                           e.preventDefault();
                           const starred = isStarredPath(props.node.data.path);
-                          openContextMenu({ x: e.clientX, y: e.clientY, kind: 'file', source: 'folders', path: props.node.data.path, starred }, e.currentTarget);
+                          openContextMenu({ x: e.clientX, y: e.clientY, kind: 'file', source: 'folders', path: props.node.data.path, starred }, anchorEl);
                         }
                       }}
                     >
@@ -817,8 +906,10 @@ export function FileTree({
 
       {contextMenu && (
         <div
-          className="fixed z-50 bg-[var(--bg-overlay)] border border-[var(--bg-divider)] rounded shadow-lg py-1 text-sm min-w-36"
-          style={{ left: contextMenu.x, top: contextMenu.y }}
+          ref={contextMenuRef}
+          data-filetree-context-menu="true"
+          className="fixed z-50 bg-[var(--bg-overlay)] border border-[var(--bg-divider)] rounded-md shadow-md py-1 text-xs"
+          style={{ left: contextMenu.x, top: contextMenu.y, width: contextMenuWidth }}
         >
           {contextMenu.kind === 'dir' && (
             <>

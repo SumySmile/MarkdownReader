@@ -34,8 +34,9 @@ A desktop Markdown editor based on Tauri + React + TypeScript.
   - Files rows and folder-tree file rows share unified layout: fixed star column + consistent text color + hover/active feedback.
   - Right-click file: open / rename (name only, extension unchanged) / duplicate (custom name) / delete / star / remove / copy path / open containing folder.
   - Right-click any directory node: copy path / open directory / refresh (plus unpin when the directory is pinned).
-  - Context menu is anchored to the selected row (prefers below, flips above when needed) and stays in viewport.
+  - Context menu is anchored to the selected row (prefers right side, falls back to left when needed) and stays in viewport.
   - The right-click target row is outlined so the action target is always clear.
+  - Right-click target outline is layered above neighboring row hover states to avoid border clipping.
   - Right-click Files header: clear unstarred files.
 - AI-skill oriented file support:
   - Editable whitelist includes common markdown/code/config/script files such as:
@@ -101,3 +102,8 @@ npm run tauri dev
 - Sidebar hide/show keeps tree instance mounted, preserving folder expansion and current selection when reopened.
 - Path handling uses a shared normalization utility (including Windows drive/root and long-path prefix cases) to keep imported list, folder tree, and star state matching reliably.
 - Main window icon is explicitly set at startup on Windows to ensure taskbar/thumbnail icon consistency.
+
+## UI Guidelines
+
+- Context-menu behavior standards for Explorer are documented in:
+  - `UI_CONTEXT_MENU_GUIDELINES.md`
