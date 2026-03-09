@@ -1,6 +1,7 @@
-﻿import { useState } from 'react';
+import { useState } from 'react';
 import { FileTree } from '../file-tree/FileTree';
 import { SourceEditor } from '../editor/SourceEditor';
+import type { MarkdownActionType, MarkdownEditorAction } from '../editor/SourceEditor';
 import { PreviewPane } from '../editor/PreviewPane';
 import { SplitPane } from './SplitPane';
 import { Toolbar, EditorMode, Theme } from './Toolbar';
@@ -61,6 +62,7 @@ function WelcomeCard() {
         <p><kbd className="bg-[var(--bg-overlay)] px-1.5 py-0.5 rounded text-[10px]">Ctrl+\</kbd> Toggle Source / Preview</p>
         <p><kbd className="bg-[var(--bg-overlay)] px-1.5 py-0.5 rounded text-[10px]">Ctrl+O</kbd> Open file</p>
         <p><kbd className="bg-[var(--bg-overlay)] px-1.5 py-0.5 rounded text-[10px]">Ctrl+F</kbd> Focus search</p>
+        <p><kbd className="bg-[var(--bg-overlay)] px-1.5 py-0.5 rounded text-[10px]">Ctrl+Alt+T/L/K</kbd> Markdown inserts</p>
       </div>
     </div>
   );
@@ -110,20 +112,24 @@ export function AppLayout({
 }: AppLayoutProps) {
   const [editorErrorNonce, setEditorErrorNonce] = useState(0);
   const [editorErrorMessage, setEditorErrorMessage] = useState<string | null>(null);
+  const [markdownAction, setMarkdownAction] = useState<MarkdownEditorAction | null>(null);
   const previewKind: FileKind = activeFileKind ?? 'markdown';
   const isMarkdownFile = previewKind === 'markdown';
   const enableSplitPane = mode === 'source' && isMarkdownFile && sourceSplitEnabled;
+  const triggerMarkdownAction = (type: MarkdownActionType) => {
+    setMarkdownAction({ type, seq: Date.now() });
+  };
 
   const editorArea = activeFile ? (
     <div className="flex flex-col h-full">
       {enableSplitPane ? (
         <SplitPane
           syncScroll={syncScroll}
-          left={<SourceEditor content={content} onChange={onContentChange} filePath={activeFile} readOnly={!activeFileEditable} />}
+          left={<SourceEditor content={content} onChange={onContentChange} filePath={activeFile} readOnly={!activeFileEditable} markdownAction={markdownAction} />}
           right={<PreviewPane content={content} filePath={activeFile} fileKind={previewKind} theme={theme} />}
         />
       ) : mode === 'source' ? (
-        <SourceEditor content={content} onChange={onContentChange} filePath={activeFile} readOnly={!activeFileEditable} />
+        <SourceEditor content={content} onChange={onContentChange} filePath={activeFile} readOnly={!activeFileEditable} markdownAction={markdownAction} />
       ) : (
         <PreviewPane content={content} filePath={activeFile} fileKind={previewKind} theme={theme} />
       )}
@@ -188,6 +194,7 @@ export function AppLayout({
           saveState={saveState}
           onSave={onSave}
           fileName={activeFile}
+          onMarkdownAction={triggerMarkdownAction}
         />
         <div className="flex-1 overflow-hidden">
           <ErrorBoundary
@@ -231,11 +238,10 @@ export function AppLayout({
           className={`sidebar-handle ${sidebarVisible ? '' : 'is-collapsed'}`}
         >
           <span className="sidebar-handle-arrow" aria-hidden="true">
-            {sidebarVisible ? '‹' : '›'}
+            {sidebarVisible ? '\u2039' : '\u203a'}
           </span>
         </button>
       </div>
     </div>
   );
 }
-

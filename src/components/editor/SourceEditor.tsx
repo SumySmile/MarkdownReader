@@ -2,18 +2,31 @@ import { useRef, useMemo, useEffect, useState } from 'react';
 import { useCodeMirror } from './useCodeMirror';
 import { markdown, markdownLanguage } from '@codemirror/lang-markdown';
 import { languages } from '@codemirror/language-data';
-import { LanguageDescription, HighlightStyle, syntaxHighlighting } from '@codemirror/language';
+import { LanguageDescription, HighlightStyle, syntaxHighlighting, foldCode, unfoldAll } from '@codemirror/language';
 import { EditorView } from '@codemirror/view';
 import { defaultKeymap, history, historyKeymap } from '@codemirror/commands';
 import { keymap, lineNumbers, drawSelection } from '@codemirror/view';
 import { EditorState, Extension } from '@codemirror/state';
 import { tags as t } from '@lezer/highlight';
 
+export type MarkdownActionType =
+  | 'insert-table'
+  | 'insert-task-list'
+  | 'insert-code-block'
+  | 'fold-heading'
+  | 'unfold-all';
+
+export interface MarkdownEditorAction {
+  type: MarkdownActionType;
+  seq: number;
+}
+
 interface SourceEditorProps {
   content: string;
   onChange: (text: string) => void;
   filePath: string | null;
   readOnly?: boolean;
+  markdownAction?: MarkdownEditorAction | null;
 }
 
 const baseTheme = EditorView.theme({
@@ -80,11 +93,58 @@ function getLanguageFilename(path: string | null): string | null {
   return slash >= 0 ? normalized.slice(slash + 1) : normalized;
 }
 
-export function SourceEditor({ content, onChange, filePath, readOnly = false }: SourceEditorProps) {
+export function SourceEditor({ content, onChange, filePath, readOnly = false, markdownAction = null }: SourceEditorProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [languageExtension, setLanguageExtension] = useState<Extension>([]);
   const fileName = getLanguageFilename(filePath);
   const isMarkdownFile = !!fileName && ['.md', '.markdown', '.mdx'].some(ext => fileName.toLowerCase().endsWith(ext));
+
+  const applyInsert = (view: EditorView, text: string) => {
+    const selection = view.state.selection.main;
+    view.dispatch({
+      changes: { from: selection.from, to: selection.to, insert: text },
+      selection: { anchor: selection.from + text.length },
+      scrollIntoView: true,
+    });
+    view.focus();
+  };
+
+  const applyCodeBlockInsert = (view: EditorView) => {
+    const selection = view.state.selection.main;
+    const selected = view.state.sliceDoc(selection.from, selection.to);
+    const body = selected.length > 0 ? selected : '';
+    const insertText = `\`\`\`\n${body}\n\`\`\`\n`;
+    const anchor = selection.from + 4;
+    view.dispatch({
+      changes: { from: selection.from, to: selection.to, insert: insertText },
+      selection: { anchor },
+      scrollIntoView: true,
+    });
+    view.focus();
+  };
+
+  const applyMarkdownAction = (view: EditorView, action: MarkdownActionType) => {
+    if (readOnly || !isMarkdownFile) return;
+    switch (action) {
+      case 'insert-table':
+        applyInsert(view, '| Column 1 | Column 2 |\n| --- | --- |\n| Value 1 | Value 2 |\n');
+        return;
+      case 'insert-task-list':
+        applyInsert(view, '- [ ] Task 1\n- [ ] Task 2\n');
+        return;
+      case 'insert-code-block':
+        applyCodeBlockInsert(view);
+        return;
+      case 'fold-heading':
+        foldCode(view);
+        return;
+      case 'unfold-all':
+        unfoldAll(view);
+        return;
+      default:
+        return;
+    }
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -118,6 +178,35 @@ export function SourceEditor({ content, onChange, filePath, readOnly = false }: 
     drawSelection(),
     keymap.of([...defaultKeymap, ...historyKeymap]),
     syntaxHighlighting(editorHighlightStyle, { fallback: true }),
+    isMarkdownFile
+      ? EditorView.domEventHandlers({
+          paste: (event, view) => {
+            if (readOnly) return false;
+            const text = event.clipboardData?.getData('text/plain');
+            if (!text) return false;
+            const selection = view.state.selection.main;
+            const selected = view.state.sliceDoc(selection.from, selection.to);
+            const trimmed = text.trim();
+            const isUrl = /^https?:\/\/\S+$/i.test(trimmed);
+            if (selected && isUrl) {
+              event.preventDefault();
+              applyInsert(view, `[${selected}](${trimmed})`);
+              return true;
+            }
+            const isCodeLike =
+              text.includes('\n')
+              && (/\t| {2,}/.test(text) || /[{}()[\];=<>]/.test(text) || /\b(class|function|const|let|import|export)\b/.test(text));
+            if (isCodeLike) {
+              event.preventDefault();
+              const safe = text.replace(/\r\n/g, '\n');
+              const codeBlock = `\`\`\`\n${safe}\n\`\`\``;
+              applyInsert(view, codeBlock);
+              return true;
+            }
+            return false;
+          },
+        })
+      : [],
     isMarkdownFile ? markdown({ base: markdownLanguage, codeLanguages: languages }) : languageExtension,
     EditorState.readOnly.of(readOnly),
     EditorView.editable.of(!readOnly),
@@ -125,7 +214,14 @@ export function SourceEditor({ content, onChange, filePath, readOnly = false }: 
     EditorView.lineWrapping,
   ], [isMarkdownFile, languageExtension, readOnly]);
 
-  useCodeMirror({ containerRef, value: content, onChange, extensions });
+  const viewRef = useCodeMirror({ containerRef, value: content, onChange, extensions });
+
+  useEffect(() => {
+    if (!markdownAction?.seq) return;
+    const view = viewRef.current;
+    if (!view) return;
+    applyMarkdownAction(view, markdownAction.type);
+  }, [markdownAction, viewRef, readOnly, isMarkdownFile]);
 
   return <div ref={containerRef} className="h-full overflow-hidden" />;
 }

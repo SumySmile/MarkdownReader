@@ -9,7 +9,7 @@ interface UseCodeMirrorOptions {
   extensions: Extension[];
 }
 
-export function useCodeMirror({ containerRef, value, onChange, extensions }: UseCodeMirrorOptions): void {
+export function useCodeMirror({ containerRef, value, onChange, extensions }: UseCodeMirrorOptions): RefObject<EditorView | null> {
   const viewRef = useRef<EditorView | null>(null);
   const onChangeRef = useRef(onChange);
   const extCompartment = useRef(new Compartment());
@@ -65,4 +65,6 @@ export function useCodeMirror({ containerRef, value, onChange, extensions }: Use
       effects: extCompartment.current.reconfigure(extensions),
     });
   }, [extensions]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  return viewRef;
 }

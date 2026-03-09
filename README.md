@@ -10,6 +10,14 @@ A desktop Markdown editor based on Tauri + React + TypeScript.
   - Markdown files support optional split preview in Source mode (non-markdown files stay single-pane)
   - Markdown render pipeline with GFM + code highlighting + relative image support
   - Sync scroll toggle is available only when Markdown split view is enabled
+  - Toolbar hierarchy is stabilized:
+    - `Source / Preview` remains centered as the primary control.
+    - Markdown quick-action icons are shown as lightweight ghost icons to avoid visual noise.
+    - Split-off state uses a dashed-divider icon for clearer meaning.
+  - Markdown quick actions in Source mode:
+    - Insert table, task list, and fenced code block.
+    - Fold heading at cursor and unfold all headings.
+    - Keyboard shortcuts: `Ctrl+Alt+T/L/K/F/U`.
 - Sidebar supports both:
   - Folder explorer (for openable files in pinned directories).
   - File panel (imported files list, independent from folder tree).
