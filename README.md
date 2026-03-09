@@ -9,6 +9,9 @@ A desktop Markdown editor based on Tauri + React + TypeScript.
   - Preview mode
   - Markdown files support optional split preview in Source mode (non-markdown files stay single-pane)
   - Markdown render pipeline with GFM + code highlighting + relative image support
+  - Preview TOC uses rendered headings as source of truth, so TOC click and destination stay consistent.
+  - TOC jump keeps a safe top offset to avoid heading lines being covered near the top of Preview.
+  - YAML frontmatter is rendered as a dedicated readable block in Preview (preserves original line breaks).
   - Sync scroll toggle is available only when Markdown split view is enabled
   - Toolbar hierarchy is stabilized:
     - `Source / Preview` remains centered as the primary control.
