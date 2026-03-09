@@ -342,26 +342,15 @@ function App() {
   const handleToggleFileStar = async (path: string) => {
     const normalized = normalizePath(path);
     const lower = pathKey(normalized);
-    let becameStarred = false;
     let nextStars: string[] = [];
     setStarredFiles(prev => {
       const exists = prev.some(item => pathKey(item) === lower);
-      becameStarred = !exists;
       nextStars = exists
         ? prev.filter(item => pathKey(item) !== lower)
         : [...prev, normalized];
       return nextStars;
     });
     await storeSet('starredFiles', nextStars);
-
-    if (becameStarred) {
-      let nextPinned: string[] = [];
-      setPinnedFiles(prev => {
-        nextPinned = mergeUniquePaths(prev, [normalized]);
-        return nextPinned;
-      });
-      await storeSet('pinnedFiles', nextPinned);
-    }
   };
 
   const handleToggleFilesPanel = async () => {

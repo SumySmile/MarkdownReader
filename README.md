@@ -26,8 +26,8 @@ A desktop Markdown editor based on Tauri + React + TypeScript.
     - `MD` filter icon (left of Import Files) toggles markdown-only view.
     - `Star` filter icon toggles starred-only view.
   - Header actions are grouped: import/pin actions and filter toggles are visually separated.
-  - Star files and pin starred files to top.
-  - Starring a file from the folder tree syncs to the Files panel.
+  - Star state is shared across Files and Folders for the same path.
+  - Files list membership stays independent: starring in Folders does not auto-add into Files.
   - Star icon is rendered as a solid star for clearer state.
   - In `Star` filter mode, folder ancestors of starred files stay visible and are marked with `*` in Folders (without forcing expand/collapse changes).
   - Long filenames are truncated with ellipsis and full-path tooltip in both sections.
