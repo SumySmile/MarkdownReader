@@ -789,12 +789,13 @@ export function FileTree({
                         ref={isActive ? activeRowRef : null}
                         className={cn(
                           fileRowClass,
+                          'relative',
                           'hover:bg-[var(--explorer-row-hover)]',
                           isActive && 'bg-[var(--explorer-row-active)]',
                           contextMenu?.kind === 'file'
                           && contextMenu.source === 'files'
                           && pathKey(contextMenu.path) === pathKey(path)
-                          && 'border-[var(--accent-primary)]'
+                          && 'z-10 ring-1 ring-[var(--accent-primary)]'
                         )}
                         title={path}
                         onClick={() => openFile(path)}

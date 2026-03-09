@@ -1,5 +1,7 @@
 use serde::Serialize;
 use std::fs;
+use std::path::Path;
+use std::process::Command;
 
 #[derive(Serialize)]
 pub struct DirEntry {
@@ -46,4 +48,78 @@ pub async fn write_text_file(path: String, content: String) -> Result<(), String
 #[tauri::command]
 pub async fn get_launch_args() -> Result<Vec<String>, String> {
     Ok(std::env::args().skip(1).collect())
+}
+
+#[tauri::command]
+pub async fn open_directory_native(path: String) -> Result<(), String> {
+    #[cfg(target_os = "windows")]
+    {
+        let target = path.replace('/', "\\");
+        Command::new("explorer")
+            .arg(target)
+            .spawn()
+            .map_err(|e| e.to_string())?;
+        return Ok(());
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        Command::new("open")
+            .arg(path)
+            .spawn()
+            .map_err(|e| e.to_string())?;
+        return Ok(());
+    }
+
+    #[cfg(all(unix, not(target_os = "macos")))]
+    {
+        Command::new("xdg-open")
+            .arg(path)
+            .spawn()
+            .map_err(|e| e.to_string())?;
+        return Ok(());
+    }
+
+    #[allow(unreachable_code)]
+    Err("unsupported platform".to_string())
+}
+
+#[tauri::command]
+pub async fn open_containing_folder_native(path: String) -> Result<(), String> {
+    let normalized = path.replace('/', "\\");
+    let parent = Path::new(&normalized)
+        .parent()
+        .map(|p| p.to_string_lossy().to_string())
+        .unwrap_or(normalized.clone());
+
+    #[cfg(target_os = "windows")]
+    {
+        Command::new("explorer")
+            .arg(format!("/select,{}", normalized))
+            .spawn()
+            .map_err(|e| e.to_string())?;
+        return Ok(());
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        Command::new("open")
+            .arg("-R")
+            .arg(path)
+            .spawn()
+            .map_err(|e| e.to_string())?;
+        return Ok(());
+    }
+
+    #[cfg(all(unix, not(target_os = "macos")))]
+    {
+        Command::new("xdg-open")
+            .arg(parent.replace('\\', "/"))
+            .spawn()
+            .map_err(|e| e.to_string())?;
+        return Ok(());
+    }
+
+    #[allow(unreachable_code)]
+    Err("unsupported platform".to_string())
 }

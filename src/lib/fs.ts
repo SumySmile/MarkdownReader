@@ -47,11 +47,20 @@ export async function openContainingFolder(filePath: string): Promise<void> {
   const normalized = filePath.replace(/\\/g, '/');
   const slashIndex = normalized.lastIndexOf('/');
   const folder = slashIndex > 0 ? normalized.slice(0, slashIndex) : normalized;
-  await openPath(folder);
+  try {
+    await invoke('open_containing_folder_native', { path: normalized });
+  } catch {
+    await openPath(folder);
+  }
 }
 
 export async function openDirectory(path: string): Promise<void> {
-  await openPath(path.replace(/\\/g, '/'));
+  const normalized = path.replace(/\\/g, '/');
+  try {
+    await invoke('open_directory_native', { path: normalized });
+  } catch {
+    await openPath(normalized);
+  }
 }
 
 export async function renamePath(oldPath: string, newPath: string): Promise<void> {

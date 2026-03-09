@@ -33,6 +33,8 @@ A desktop Markdown editor based on Tauri + React + TypeScript.
   - Long filenames are truncated with ellipsis and full-path tooltip in both sections.
   - Files rows and folder-tree file rows share unified layout: fixed star column + consistent text color + hover/active feedback.
   - Right-click file: open / rename (name only, extension unchanged) / duplicate (custom name) / delete / star / remove / copy path / open containing folder.
+  - `Open Containing Folder` works for file rows in both `Files` and `Folders`.
+  - On Windows/macOS it reveals the target file in system explorer; on Linux it opens the parent directory.
   - Right-click any directory node: copy path / open directory / refresh (plus unpin when the directory is pinned).
   - Context menu is anchored to the selected row (prefers right side, falls back to left when needed) and stays in viewport.
   - The right-click target row is outlined so the action target is always clear.

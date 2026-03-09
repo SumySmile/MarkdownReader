@@ -19,7 +19,9 @@ pub fn run() {
             commands::fs::read_dir_sorted,
             commands::fs::read_text_file,
             commands::fs::write_text_file,
-            commands::fs::get_launch_args
+            commands::fs::get_launch_args,
+            commands::fs::open_directory_native,
+            commands::fs::open_containing_folder_native
         ])
         .setup(|app| {
             #[cfg(target_os = "windows")]
