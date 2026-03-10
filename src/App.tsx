@@ -4,7 +4,7 @@ import { useActiveFile } from './hooks/useActiveFile';
 import { useFileWatcher } from './hooks/useFileWatcher';
 import { storeGet, storeSet } from './lib/store';
 import { deletePath, getLaunchArgs, hasOpenableFilesInDirectory, openContainingFolder, openDirectory, pickOpenableTextFiles, readFile, renamePath, writeFile } from './lib/fs';
-import { getFileKind, isEditablePath, isOpenablePath, isReadonlyPreviewPath, type FileKind } from './lib/markdown';
+import { getFileKind, isEditablePath, isOpenablePath, isReadonlyPreviewPath, isSizeLimitExemptPath, type FileKind } from './lib/markdown';
 import { normalizePath, pathKey } from './lib/path';
 import type { EditorMode, Theme } from './components/layout/Toolbar';
 import { THEME_NEXT } from './components/layout/Toolbar';
@@ -93,7 +93,7 @@ function toErrorMessage(error: unknown, fallback: string): string {
 }
 
 function getReadonlyReason(path: string, content: string): string | null {
-  if (byteLength(content) > MAX_EDITABLE_BYTES) return 'Read-only: file too large (>1MB)';
+  if (byteLength(content) > MAX_EDITABLE_BYTES && !isSizeLimitExemptPath(path)) return 'Read-only: file too large (>1MB)';
   if (!isOpenablePath(path)) return 'Read-only: unsupported file type';
   if (isReadonlyPreviewPath(path)) return 'Read-only: protected file';
   if (!isEditablePath(path)) return 'Read-only: non-editable file type';

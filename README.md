@@ -42,6 +42,7 @@ A desktop Markdown editor based on Tauri + React + TypeScript.
   - Star state is shared across Files and Folders for the same path.
   - Files list membership stays independent: starring in Folders does not auto-add into Files.
   - Star icon is rendered as a solid star for clearer state.
+  - Under `MD` filter, folders that do not contain markdown files are hidden from `Folders`.
   - In `Star` filter mode, folder ancestors of starred files stay visible and are marked with `*` in Folders (without forcing expand/collapse changes).
   - Long filenames are truncated with ellipsis and full-path tooltip in both sections.
   - Files rows and folder-tree file rows share unified layout: fixed star column + consistent text color + hover/active feedback.
@@ -63,6 +64,7 @@ A desktop Markdown editor based on Tauri + React + TypeScript.
   - Path protection: files under `.git/` and `node_modules/` are preview-only.
 - Performance guardrail:
   - Files larger than `1MB` open as preview-only to avoid editor lag.
+  - `SKILL.md` is exempt from the size guardrail so large skill specs can still be edited in Source mode.
 - Source editor syntax highlighting:
   - Source highlighting now uses file-visual categories (`markdown/code/config/script/data/docs/plain`) for clearer differences between file types.
   - Language is selected by file extension (e.g. `.py`, `.ts`, `.tsx`, `.js`, `.json`, `.yaml`, `.sh`, `.ps1`).
@@ -77,6 +79,8 @@ A desktop Markdown editor based on Tauri + React + TypeScript.
 - Text preview highlighting:
   - Preview mode maps app theme to code theme (dark/light/mint/gray) for more consistent readability.
   - Preview mode for supported text files uses extension-based syntax highlighting when possible.
+  - Preview code blocks use a flatter single-shell style (no nested frame), with tighter spacing and improved font sizing for better parity with Source readability.
+  - Inline code and in-cell code labels are rendered without pill-style boxed backgrounds to keep document flow cleaner.
   - Falls back to plain text rendering if highlighting is unavailable.
 - Supports opening markdown file directly via OS file association (after installer install).
 - Launcher scripts:

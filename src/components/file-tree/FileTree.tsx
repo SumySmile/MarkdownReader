@@ -264,7 +264,6 @@ function NodeRow({
       <span className="w-3.5 text-right justify-self-end">
         {!isDir && starred ? <Star size={12} className="text-[var(--accent-warning)] fill-current" /> : null}
         {isDir && hasStarredDescendant ? <span className="text-[10px] leading-none text-[var(--accent-warning)] opacity-90">*</span> : null}
-        {isDir && !hasStarredDescendant && hasMarkdownDescendant ? <span className="text-[10px] leading-none text-[var(--explorer-md-text)] opacity-95">m</span> : null}
       </span>
     </div>
   );
@@ -755,6 +754,7 @@ export function FileTree({
 
   const filterTreeByQuickFilters = useCallback((nodes: TreeNode[]): TreeNode[] => {
     if (!filterMdOnly && !filterStarOnly && !filterMdFoldersOnly) return nodes;
+    const effectiveMdFolderFilter = filterMdOnly || filterMdFoldersOnly;
 
     const visit = (node: TreeNode): TreeNode | null => {
       if (!node.isDirectory) {
@@ -766,14 +766,15 @@ export function FileTree({
 
       if (node.children === null) {
         if (filterStarOnly && !nodeIsStarredAncestor) return null;
+        if (effectiveMdFolderFilter && !nodeHasMarkdownDescendant) return null;
         return node;
       }
 
       const nextChildren = node.children
         .map(visit)
         .filter((child): child is TreeNode => child !== null);
-      if (nextChildren.length === 0 && !(filterStarOnly && nodeIsStarredAncestor) && !(filterMdFoldersOnly && nodeHasMarkdownDescendant)) return null;
-      if (filterMdFoldersOnly && !nodeHasMarkdownDescendant && nextChildren.length === 0) return null;
+      if (nextChildren.length === 0 && !(filterStarOnly && nodeIsStarredAncestor) && !(effectiveMdFolderFilter && nodeHasMarkdownDescendant)) return null;
+      if (effectiveMdFolderFilter && !nodeHasMarkdownDescendant && nextChildren.length === 0) return null;
 
       return { ...node, children: nextChildren } as DirectoryNode;
     };

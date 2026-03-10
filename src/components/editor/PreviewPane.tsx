@@ -31,7 +31,9 @@ interface TocHeading {
 const CodeBlock = memo(function CodeBlock({ code, lang, shikiTheme }: CodeBlockProps) {
   const [html, setHtml] = useState('');
   const [copied, setCopied] = useState(false);
-  const label = lang || 'plain text';
+  const normalizedLang = (lang || '').trim().toLowerCase();
+  const isPlain = normalizedLang.length === 0 || normalizedLang === 'text' || normalizedLang === 'plaintext' || normalizedLang === 'plain';
+  const label = isPlain ? 'text' : normalizedLang;
   useEffect(() => {
     highlight(code, lang || 'text', shikiTheme).then(setHtml);
   }, [code, lang, shikiTheme]);
@@ -45,7 +47,7 @@ const CodeBlock = memo(function CodeBlock({ code, lang, shikiTheme }: CodeBlockP
   };
   if (!html) return <pre><code>{code}</code></pre>;
   return (
-    <div className="markdown-codeblock-shell">
+    <div className={`markdown-codeblock-shell ${isPlain ? 'is-plain' : 'has-lang'}`}>
       <div className="markdown-codeblock-toolbar">
         <span className="markdown-codeblock-lang">{label}</span>
         <button
@@ -277,7 +279,7 @@ export function PreviewPane({ content, filePath, fileKind = 'markdown', theme = 
               const lang = (className || '').replace('language-', '');
               const code = String(children).replace(/\n$/, '');
               const isBlock = code.includes('\n') || lang;
-              if (!isBlock) return <code style={{ color: 'var(--syntax-string)', background: 'var(--bg-surface)', padding: '0 4px', borderRadius: 3 }}>{children}</code>;
+              if (!isBlock) return <code style={{ color: 'var(--md-inline-code)' }}>{children}</code>;
               return <CodeBlock code={code} lang={lang} shikiTheme={shikiTheme} />;
             },
             img({ src, alt }) {

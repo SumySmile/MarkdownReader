@@ -112,6 +112,11 @@ export function isEditablePath(path: string): boolean {
   return endsWithAny(normalized, MARKDOWN_EXTENSIONS) || endsWithAny(normalized, EDITABLE_TEXT_EXTENSIONS);
 }
 
+export function isSizeLimitExemptPath(path: string): boolean {
+  const fileName = baseName(path);
+  return fileName === 'skill.md';
+}
+
 export function isOpenablePath(path: string): boolean {
   const normalized = normalize(path);
   return (
