@@ -6,6 +6,11 @@ import {
   ChevronRight,
   ChevronDown,
   File,
+  FileText,
+  FileBraces,
+  FileTerminal,
+  Database,
+  Settings2,
   Folder,
   FolderOpen,
   FilePlus,
@@ -21,6 +26,7 @@ import {
 import { cn } from '../../lib/utils';
 import { isOpenablePath } from '../../lib/markdown';
 import { normalizePath, pathKey, pathKeyNoDrive } from '../../lib/path';
+import { getFileVisualType, type FileVisualType } from '../../lib/fileVisualType';
 
 interface FileTreeProps {
   pinnedDirs: string[];
@@ -167,15 +173,59 @@ function EmptyState({ title, subtitle }: { title: string; subtitle?: ReactNode }
   );
 }
 
+function getFileVisualIcon(type: FileVisualType) {
+  switch (type) {
+    case 'markdown':
+      return FileText;
+    case 'code':
+      return FileBraces;
+    case 'config':
+      return Settings2;
+    case 'script':
+      return FileTerminal;
+    case 'data':
+      return Database;
+    case 'docs':
+      return FileText;
+    case 'plain':
+      return File;
+    default:
+      return File;
+  }
+}
+
+function getFileVisualIconColor(type: FileVisualType): string {
+  switch (type) {
+    case 'markdown':
+      return 'var(--filetype-markdown)';
+    case 'code':
+      return 'var(--filetype-code)';
+    case 'config':
+      return 'var(--filetype-config)';
+    case 'script':
+      return 'var(--filetype-script)';
+    case 'data':
+      return 'var(--filetype-data)';
+    case 'docs':
+      return 'var(--filetype-docs)';
+    case 'plain':
+      return 'var(--filetype-plain)';
+    default:
+      return 'var(--filetype-unknown)';
+  }
+}
+
 function NodeRow({
   node,
   style,
   starred = false,
   hasStarredDescendant = false,
-}: NodeRendererProps<TreeNode> & { starred?: boolean; hasStarredDescendant?: boolean }) {
+  fileVisualType = 'unknown',
+}: NodeRendererProps<TreeNode> & { starred?: boolean; hasStarredDescendant?: boolean; fileVisualType?: FileVisualType }) {
   const isDir = node.data.isDirectory;
   const isOpen = node.isOpen;
-  const Icon = isDir ? (isOpen ? FolderOpen : Folder) : File;
+  const FileIcon = getFileVisualIcon(fileVisualType);
+  const Icon = isDir ? (isOpen ? FolderOpen : Folder) : FileIcon;
 
   return (
     <div
@@ -192,7 +242,11 @@ function NodeRow({
       <span className="w-3">
         {isDir && (isOpen ? <ChevronDown size={12} /> : <ChevronRight size={12} />)}
       </span>
-      <Icon size={14} className={cn(isDir ? 'text-[var(--accent-primary)]' : 'text-[var(--text-secondary)]')} />
+      <Icon
+        size={14}
+        className={cn(isDir ? 'text-[var(--accent-primary)]' : '')}
+        style={isDir ? undefined : { color: getFileVisualIconColor(fileVisualType) }}
+      />
       <span
         className="block min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-[var(--text-secondary)]"
         title={node.data.path}
@@ -836,6 +890,8 @@ export function FileTree({
                   filteredFiles.map(path => {
                     const isStarred = isStarredPath(path);
                     const isActive = normalizedActive === path;
+                    const visualType = getFileVisualType(path);
+                    const FileTypeIcon = getFileVisualIcon(visualType);
                     return (
                       <div
                         key={path}
@@ -858,7 +914,7 @@ export function FileTree({
                         }}
                       >
                         <span className="w-3" />
-                        <File size={13} />
+                        <FileTypeIcon size={13} style={{ color: getFileVisualIconColor(visualType) }} />
                         <span
                           className="block min-w-0 overflow-hidden text-ellipsis whitespace-nowrap"
                           title={path}
@@ -948,6 +1004,7 @@ export function FileTree({
                         {...props}
                         starred={!props.node.data.isDirectory && isStarredPath(props.node.data.path)}
                         hasStarredDescendant={props.node.data.isDirectory && starredAncestorDirs.has(pathKey(props.node.data.path))}
+                        fileVisualType={props.node.data.isDirectory ? 'unknown' : getFileVisualType(props.node.data.path)}
                       />
                     </div>
                   )}

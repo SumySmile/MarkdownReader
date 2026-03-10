@@ -6,7 +6,7 @@ function getHighlighter(): Promise<Highlighter> {
   if (!_highlighterPromise) {
     _highlighterPromise = import('shiki').then(({ createHighlighter }) =>
       createHighlighter({
-        themes: ['github-dark', 'github-light'],
+        themes: ['github-dark', 'github-light', 'material-theme-lighter', 'one-light'],
         langs: ['javascript', 'typescript', 'python', 'rust', 'go', 'bash', 'json', 'css', 'html', 'markdown', 'yaml', 'toml'],
       })
     );
@@ -24,18 +24,23 @@ function hashCode(str: string): string {
 const cache = new Map<string, string>();
 const MAX_CACHE = 200;
 
-export async function highlight(code: string, lang: string, theme: 'dark' | 'light' = 'dark'): Promise<string> {
+export async function highlight(code: string, lang: string, theme: string = 'github-dark'): Promise<string> {
   const key = `${theme}::${lang}::${hashCode(code)}`;
   if (cache.has(key)) return cache.get(key)!;
 
   const hl = await getHighlighter();
-  const themeId = theme === 'dark' ? 'github-dark' : 'github-light';
+  const themeId = theme;
   let html: string;
   try {
     html = hl.codeToHtml(code, { lang, theme: themeId });
   } catch {
     // Unknown language fallback
-    html = hl.codeToHtml(code, { lang: 'text', theme: themeId });
+    try {
+      html = hl.codeToHtml(code, { lang: 'text', theme: themeId });
+    } catch {
+      // Final fallback for unknown theme identifiers.
+      html = hl.codeToHtml(code, { lang: 'text', theme: 'github-light' });
+    }
   }
 
   if (cache.size >= MAX_CACHE) {

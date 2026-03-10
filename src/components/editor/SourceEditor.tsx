@@ -8,6 +8,7 @@ import { defaultKeymap, history, historyKeymap } from '@codemirror/commands';
 import { keymap, lineNumbers, drawSelection } from '@codemirror/view';
 import { EditorState, Extension } from '@codemirror/state';
 import { tags as t } from '@lezer/highlight';
+import { getFileVisualType, type FileVisualType } from '../../lib/fileVisualType';
 
 export type MarkdownActionType =
   | 'insert-table'
@@ -50,12 +51,13 @@ const baseTheme = EditorView.theme({
   '.cm-activeLineGutter': { backgroundColor: 'var(--bg-overlay)' },
   '.cm-activeLine': { backgroundColor: 'rgba(255,255,255,0.03)' },
   '.cm-scroller': { overflow: 'auto', height: '100%', scrollbarGutter: 'stable both-edges' },
-  '.cm-formatting': { color: 'var(--md-syntax)' },
-  '.cm-formatting-header': { color: 'var(--md-syntax)' },
-  '.cm-formatting-em': { color: 'var(--md-syntax)' },
-  '.cm-formatting-strong': { color: 'var(--md-syntax)' },
-  '.cm-formatting-code': { color: 'var(--md-syntax)' },
-  '.cm-formatting-link': { color: 'var(--md-syntax)' },
+  '.cm-formatting': { color: 'var(--md-marker)' },
+  '.cm-formatting-header': { color: 'var(--md-marker)' },
+  '.cm-formatting-em': { color: 'var(--md-marker)' },
+  '.cm-formatting-strong': { color: 'var(--md-marker)' },
+  '.cm-formatting-code': { color: 'var(--md-marker)' },
+  '.cm-formatting-link': { color: 'var(--md-marker)' },
+  '.cm-quote, .cm-hr': { color: 'var(--md-marker)' },
   '.cm-heading': { color: 'var(--md-heading)', fontWeight: '600' },
   '.cm-emphasis': { color: 'var(--md-emphasis)' },
   '.cm-strong': { color: 'var(--md-strong)' },
@@ -65,22 +67,103 @@ const baseTheme = EditorView.theme({
   },
 });
 
-const editorHighlightStyle = HighlightStyle.define([
-  { tag: [t.keyword, t.modifier], color: 'var(--syntax-keyword)' },
-  { tag: [t.string, t.special(t.string)], color: 'var(--syntax-string)' },
-  { tag: [t.number, t.integer, t.float, t.bool, t.null], color: 'var(--syntax-number)' },
-  { tag: [t.typeName, t.className], color: 'var(--syntax-type)' },
-  { tag: [t.function(t.variableName), t.function(t.propertyName)], color: 'var(--syntax-func)' },
-  { tag: [t.variableName, t.propertyName], color: 'var(--text-primary)' },
-  { tag: [t.comment, t.lineComment, t.blockComment], color: 'var(--text-muted)' },
-  { tag: [t.operator, t.punctuation], color: 'var(--text-secondary)' },
-  { tag: [t.link, t.url], color: 'var(--text-link)', textDecoration: 'underline' },
-  { tag: [t.heading], color: 'var(--md-heading)', fontWeight: '600' },
-  { tag: [t.strong], color: 'var(--md-strong)', fontWeight: '700' },
-  { tag: [t.emphasis], color: 'var(--md-emphasis)', fontStyle: 'italic' },
-  { tag: [t.monospace], color: 'var(--md-inline-code)' },
-  { tag: [t.list, t.quote, t.separator], color: 'var(--md-syntax)' },
-]);
+type SourceHighlightProfile = 'markdown' | 'code' | 'config' | 'script' | 'data' | 'docs' | 'plain';
+
+function toSourceProfile(fileVisualType: FileVisualType): SourceHighlightProfile {
+  switch (fileVisualType) {
+    case 'markdown':
+    case 'code':
+    case 'config':
+    case 'script':
+    case 'data':
+    case 'docs':
+    case 'plain':
+      return fileVisualType;
+    default:
+      return 'plain';
+  }
+}
+
+function profileColor(profile: SourceHighlightProfile, token: 'keyword' | 'string' | 'number' | 'type' | 'func' | 'comment'): string {
+  const variants: Record<SourceHighlightProfile, Record<'keyword' | 'string' | 'number' | 'type' | 'func' | 'comment', string>> = {
+    markdown: {
+      keyword: 'var(--syntax-keyword)',
+      string: 'var(--md-inline-code)',
+      number: 'var(--syntax-number)',
+      type: 'var(--md-heading)',
+      func: 'var(--text-link)',
+      comment: 'var(--md-marker)',
+    },
+    code: {
+      keyword: 'var(--syntax-keyword)',
+      string: 'var(--syntax-string)',
+      number: 'var(--syntax-number)',
+      type: 'var(--syntax-type)',
+      func: 'var(--syntax-func)',
+      comment: 'var(--text-muted)',
+    },
+    config: {
+      keyword: 'var(--syntax-type)',
+      string: 'var(--syntax-string)',
+      number: 'var(--syntax-number)',
+      type: 'var(--syntax-keyword)',
+      func: 'var(--text-link)',
+      comment: 'var(--text-muted)',
+    },
+    script: {
+      keyword: 'var(--syntax-func)',
+      string: 'var(--syntax-string)',
+      number: 'var(--syntax-number)',
+      type: 'var(--syntax-type)',
+      func: 'var(--syntax-keyword)',
+      comment: 'var(--text-muted)',
+    },
+    data: {
+      keyword: 'var(--syntax-type)',
+      string: 'var(--syntax-string)',
+      number: 'var(--syntax-number)',
+      type: 'var(--syntax-keyword)',
+      func: 'var(--syntax-func)',
+      comment: 'var(--text-muted)',
+    },
+    docs: {
+      keyword: 'var(--text-secondary)',
+      string: 'var(--md-inline-code)',
+      number: 'var(--syntax-number)',
+      type: 'var(--text-primary)',
+      func: 'var(--text-link)',
+      comment: 'var(--text-muted)',
+    },
+    plain: {
+      keyword: 'var(--text-secondary)',
+      string: 'var(--text-primary)',
+      number: 'var(--text-secondary)',
+      type: 'var(--text-primary)',
+      func: 'var(--text-primary)',
+      comment: 'var(--text-muted)',
+    },
+  };
+  return variants[profile][token];
+}
+
+function createEditorHighlightStyle(profile: SourceHighlightProfile): HighlightStyle {
+  return HighlightStyle.define([
+    { tag: [t.keyword, t.modifier], color: profileColor(profile, 'keyword') },
+    { tag: [t.string, t.special(t.string)], color: profileColor(profile, 'string') },
+    { tag: [t.number, t.integer, t.float, t.bool, t.null], color: profileColor(profile, 'number') },
+    { tag: [t.typeName, t.className], color: profileColor(profile, 'type') },
+    { tag: [t.function(t.variableName), t.function(t.propertyName)], color: profileColor(profile, 'func') },
+    { tag: [t.variableName, t.propertyName], color: 'var(--text-primary)' },
+    { tag: [t.comment, t.lineComment, t.blockComment], color: profileColor(profile, 'comment') },
+    { tag: [t.operator, t.punctuation], color: 'var(--text-secondary)' },
+    { tag: [t.link, t.url], color: 'var(--text-link)', textDecoration: 'underline' },
+    { tag: [t.heading], color: 'var(--md-heading)', fontWeight: '600' },
+    { tag: [t.strong], color: 'var(--md-strong)', fontWeight: '700' },
+    { tag: [t.emphasis], color: 'var(--md-emphasis)', fontStyle: 'italic' },
+    { tag: [t.monospace], color: 'var(--md-inline-code)' },
+    { tag: [t.list, t.quote, t.separator], color: 'var(--md-marker)' },
+  ]);
+}
 
 function normalizePath(path: string): string {
   return path.replace(/\\/g, '/');
@@ -98,6 +181,14 @@ export function SourceEditor({ content, onChange, filePath, readOnly = false, ma
   const [languageExtension, setLanguageExtension] = useState<Extension>([]);
   const fileName = getLanguageFilename(filePath);
   const isMarkdownFile = !!fileName && ['.md', '.markdown', '.mdx'].some(ext => fileName.toLowerCase().endsWith(ext));
+  const highlightProfile = useMemo(
+    () => toSourceProfile(getFileVisualType(filePath)),
+    [filePath],
+  );
+  const editorHighlightStyle = useMemo(
+    () => createEditorHighlightStyle(highlightProfile),
+    [highlightProfile],
+  );
 
   const applyInsert = (view: EditorView, text: string) => {
     const selection = view.state.selection.main;

@@ -44,6 +44,7 @@ A desktop Markdown editor based on Tauri + React + TypeScript.
   - In `Star` filter mode, folder ancestors of starred files stay visible and are marked with `*` in Folders (without forcing expand/collapse changes).
   - Long filenames are truncated with ellipsis and full-path tooltip in both sections.
   - Files rows and folder-tree file rows share unified layout: fixed star column + consistent text color + hover/active feedback.
+  - File rows in both `Files` and `Folders` use unified file-type icons with subtle semantic coloring (markdown/code/config/script/data/docs/plain).
   - Right-click file: open / rename (name only, extension unchanged) / duplicate (custom name) / delete / star / remove / copy path / open containing folder.
   - `Open Containing Folder` works for file rows in both `Files` and `Folders`.
   - On Windows/macOS it reveals the target file in system explorer; on Linux it opens the parent directory.
@@ -61,16 +62,18 @@ A desktop Markdown editor based on Tauri + React + TypeScript.
 - Performance guardrail:
   - Files larger than `1MB` open as preview-only to avoid editor lag.
 - Source editor syntax highlighting:
+  - Source highlighting now uses file-visual categories (`markdown/code/config/script/data/docs/plain`) for clearer differences between file types.
   - Language is selected by file extension (e.g. `.py`, `.ts`, `.tsx`, `.js`, `.json`, `.yaml`, `.sh`, `.ps1`).
   - Includes default fallback highlighting so non-markdown code files keep visible syntax colors.
   - Unknown file types fall back to plain text highlighting.
-  - Markdown formatting symbols (for example `##`, `**`, `[]()`) are tuned across all themes.
+  - Markdown formatting symbols (for example `##`, `**`, `[]()`, `>`, `---`) are tuned across all themes.
   - Dark is the only deep theme and uses a dedicated markdown/syntax palette for readability.
 - Mode behavior for non-markdown files:
   - Editable text files are locked to Source mode.
   - Read-only text files are locked to Preview mode.
   - Markdown files keep full Source/Preview flow and optional split behavior.
 - Text preview highlighting:
+  - Preview mode maps app theme to code theme (dark/light/mint/gray) for more consistent readability.
   - Preview mode for supported text files uses extension-based syntax highlighting when possible.
   - Falls back to plain text rendering if highlighting is unavailable.
 - Supports opening markdown file directly via OS file association (after installer install).

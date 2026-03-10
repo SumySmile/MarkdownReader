@@ -7,18 +7,19 @@ import { resolveRelativePath } from '../../lib/utils';
 import { highlight } from '../../lib/shiki';
 import { useDebouncedMarkdown } from '../../hooks/useDebouncedMarkdown';
 import type { FileKind } from '../../lib/markdown';
+import { getShikiThemeForAppTheme, type FileVisualTheme } from '../../lib/fileVisualType';
 
 interface PreviewPaneProps {
   content: string;
   filePath: string | null;
   fileKind?: FileKind | null;
-  theme?: 'dark' | 'light' | 'mint' | 'gray';
+  theme?: FileVisualTheme;
 }
 
 interface CodeBlockProps {
   code: string;
   lang: string;
-  shikiTheme: 'dark' | 'light';
+  shikiTheme: string;
 }
 
 interface TocHeading {
@@ -65,7 +66,7 @@ export function PreviewPane({ content, filePath, fileKind = 'markdown', theme = 
   const debounced = useDebouncedMarkdown(content, 150);
   const normalizedContent = useMemo(() => normalizePreviewContent(debounced), [debounced]);
   const frontmatterSplit = useMemo(() => splitFrontmatter(normalizedContent), [normalizedContent]);
-  const shikiTheme: 'dark' | 'light' = theme === 'dark' ? 'dark' : 'light';
+  const shikiTheme = useMemo(() => getShikiThemeForAppTheme(theme), [theme]);
   const [textPreviewHtml, setTextPreviewHtml] = useState('');
   const textPreviewLanguage = useMemo(() => languageFromPath(filePath), [filePath]);
   const [tocOpen, setTocOpen] = useState(true);
