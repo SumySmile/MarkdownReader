@@ -11,6 +11,7 @@ pub fn run() {
         .plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {
             let _ = app.emit("app-launch-args", argv.clone());
             if let Some(window) = app.get_webview_window("main") {
+                let _ = window.unminimize();
                 let _ = window.show();
                 let _ = window.set_focus();
             }

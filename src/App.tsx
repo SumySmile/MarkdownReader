@@ -83,10 +83,49 @@ function stripWrappedQuotes(value: string): string {
   return trimmed;
 }
 
+function decodeMaybeUri(value: string): string {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+}
+
+function extractPathCandidateFromArg(arg: string): string[] {
+  const trimmed = stripWrappedQuotes(arg);
+  if (!trimmed) return [];
+
+  const candidates = new Set<string>();
+  candidates.add(trimmed);
+
+  // Support launch args like --path=E:\a\b.md or /path=E:\a\b.md
+  const eqIndex = trimmed.indexOf('=');
+  if (eqIndex > 1) {
+    const key = trimmed.slice(0, eqIndex);
+    const value = stripWrappedQuotes(trimmed.slice(eqIndex + 1));
+    if ((key.startsWith('--') || key.startsWith('/')) && value) {
+      candidates.add(value);
+    }
+  }
+
+  // Support file:// URIs and percent-encoded paths.
+  if (/^file:\/\//i.test(trimmed)) {
+    candidates.add(decodeMaybeUri(trimmed));
+  } else {
+    candidates.add(decodeMaybeUri(trimmed));
+  }
+
+  return Array.from(candidates)
+    .map(normalizePath)
+    .filter(candidate => candidate && !candidate.startsWith('--') && !candidate.startsWith('/?'));
+}
+
 function getOpenableLaunchPath(args: string[]): string | null {
   for (const arg of args) {
-    const candidate = normalizePath(stripWrappedQuotes(arg));
-    if (isOpenablePath(candidate)) return candidate;
+    const candidates = extractPathCandidateFromArg(arg);
+    for (const candidate of candidates) {
+      if (isOpenablePath(candidate)) return candidate;
+    }
   }
   return null;
 }

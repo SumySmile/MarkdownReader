@@ -98,6 +98,8 @@ A desktop Markdown editor based on Tauri + React + TypeScript.
   - Theme palettes are rebalanced to medium-high contrast for clearer syntax separation without harsh saturation.
 - Supports opening markdown file directly via OS file association (after installer install).
 - When the app is already running, opening a `.md` file brings the existing window to front and opens that file immediately.
+- Single-instance launch handling now restores minimized windows before focusing, so double-clicking `.md` while minimized still responds.
+- Launch-argument parsing is hardened for `file://` URIs, encoded paths, and `--path=...` style args, ensuring externally opened files are added to `Files` and opened correctly.
 - Launcher scripts:
   - `MarkdownViewer.bat`
   - `QuickStart.bat`
