@@ -11,6 +11,7 @@ A desktop Markdown editor based on Tauri + React + TypeScript.
   - Markdown render pipeline with GFM + code highlighting + relative image support
   - Preview TOC uses rendered headings as source of truth, so TOC click and destination stay consistent.
   - TOC jump keeps a safe top offset to avoid heading lines being covered near the top of Preview.
+  - TOC rows use a single-line constrained layout (ellipsis + fixed line box) to prevent text overlap in long heading lists.
   - YAML frontmatter is rendered as a dedicated readable block in Preview (preserves original line breaks).
   - Sync scroll toggle is available only when Markdown split view is enabled
   - Toolbar hierarchy is stabilized:
@@ -45,6 +46,7 @@ A desktop Markdown editor based on Tauri + React + TypeScript.
   - Long filenames are truncated with ellipsis and full-path tooltip in both sections.
   - Files rows and folder-tree file rows share unified layout: fixed star column + consistent text color + hover/active feedback.
   - File rows in both `Files` and `Folders` use unified file-type icons with subtle semantic coloring (markdown/code/config/script/data/docs/plain).
+  - Markdown-folder hint in `Folders` uses text/icon accent (no row background fill), with higher contrast tuned per theme.
   - Right-click file: open / rename (name only, extension unchanged) / duplicate (custom name) / delete / star / remove / copy path / open containing folder.
   - `Open Containing Folder` works for file rows in both `Files` and `Folders`.
   - On Windows/macOS it reveals the target file in system explorer; on Linux it opens the parent directory.
@@ -114,6 +116,7 @@ npm run tauri dev
 - App window title: `MarkdownEditor`.
 - Product name in packaging metadata: `MarkdownEditor`.
 - Dark theme palette is tuned for readability with slightly lighter deep gray backgrounds.
+- TOC layout is hardened for dense documents: heading rows stay single-line and avoid overlap artifacts.
 - If startup or preview content seems stale after rapid file switching/importing, request sequencing and stale watcher callback guards are included to prevent old file reads from overriding current content.
 - On startup restore, pinned directories/files, expanded directory nodes, and the last opened file are restored; active file reveal is maintained without forcing it into `Files`.
 - On startup, the app auto-reveals the active file path in Folders by expanding only its ancestor chain; other folders remain collapsed by default.

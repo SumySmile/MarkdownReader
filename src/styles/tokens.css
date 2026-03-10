@@ -24,6 +24,7 @@
   --md-strong:      #f0f5ff;
   --md-inline-code: #9fd2b0;
   --filetype-markdown: #9ec7ff;
+  --explorer-md-text: #58c7ff;
   --filetype-code: #b9b5ff;
   --filetype-config: #8dc1b9;
   --filetype-script: #d2b184;
@@ -51,6 +52,7 @@
   --explorer-row-hover: rgba(69, 80, 99, 0.62);
   --explorer-row-active: rgba(86, 100, 124, 0.72);
   --explorer-row-muted: rgba(56, 64, 78, 0.58);
+  --explorer-row-md: rgba(89, 130, 184, 0.16);
 }
 
 /* Rose */
@@ -64,19 +66,20 @@
   --text-secondary: #655462;
   --text-muted:     #938190;
 
-  --syntax-keyword: #9f6f92;
-  --syntax-string:  #5f8f72;
-  --syntax-number:  #a77a5f;
-  --syntax-type:    #5f82a2;
-  --syntax-func:    #786ea8;
+  --syntax-keyword: #8e5896;
+  --syntax-string:  #4f8669;
+  --syntax-number:  #9e6b45;
+  --syntax-type:    #4d78a2;
+  --syntax-func:    #6557a8;
   --syntax-variable:#9f6a79;
   --md-heading:     #4f3b47;
-  --md-syntax:      #7b6a77;
-  --md-marker:      #8d7a88;
+  --md-syntax:      #6f5f6c;
+  --md-marker:      #7c6981;
   --md-emphasis:    #6d5a69;
   --md-strong:      #3e3039;
   --md-inline-code: #4f7f66;
   --filetype-markdown: #6f88b8;
+  --explorer-md-text: #1f59d6;
   --filetype-code: #7b72b8;
   --filetype-config: #5e8a7f;
   --filetype-script: #9a7b56;
@@ -86,7 +89,7 @@
   --filetype-unknown: #918695;
 
   --accent-primary: #8f799e;
-  --text-link:      #8f799e;
+  --text-link:      #6e5aa8;
   --accent-success: #5f8f72;
   --accent-warning: #b49361;
   --accent-error:   #ad6877;
@@ -104,6 +107,7 @@
   --explorer-row-hover: rgba(223, 209, 217, 0.96);
   --explorer-row-active: rgba(211, 194, 204, 0.98);
   --explorer-row-muted: rgba(229, 219, 225, 0.9);
+  --explorer-row-md: rgba(121, 137, 182, 0.22);
 }
 
 /* Mint */
@@ -117,19 +121,20 @@
   --text-secondary: #4a6558;
   --text-muted:     #738a7f;
 
-  --syntax-keyword: #5d8576;
-  --syntax-string:  #568d8f;
-  --syntax-number:  #a4895a;
-  --syntax-type:    #5c80a1;
-  --syntax-func:    #6f74a9;
+  --syntax-keyword: #4f7f6d;
+  --syntax-string:  #427f84;
+  --syntax-number:  #9a7d45;
+  --syntax-type:    #4d759a;
+  --syntax-func:    #5f66a6;
   --syntax-variable:#996b78;
   --md-heading:     #29473b;
-  --md-syntax:      #5f7a6f;
-  --md-marker:      #6f8d80;
+  --md-syntax:      #4f6f63;
+  --md-marker:      #5f8173;
   --md-emphasis:    #4d685c;
   --md-strong:      #213b31;
   --md-inline-code: #4f7f82;
   --filetype-markdown: #4f7fa0;
+  --explorer-md-text: #0f7f9f;
   --filetype-code: #6b72a8;
   --filetype-config: #4e8a7f;
   --filetype-script: #927a50;
@@ -139,7 +144,7 @@
   --filetype-unknown: #7a9187;
 
   --accent-primary: #5f8e7a;
-  --text-link:      #5f8e7a;
+  --text-link:      #4e7e8c;
   --accent-success: #5f8e7a;
   --accent-warning: #a68a55;
   --accent-error:   #aa6f7b;
@@ -157,6 +162,7 @@
   --explorer-row-hover: rgba(204, 223, 214, 0.95);
   --explorer-row-active: rgba(190, 214, 202, 0.98);
   --explorer-row-muted: rgba(213, 229, 221, 0.9);
+  --explorer-row-md: rgba(96, 131, 158, 0.18);
 }
 
 /* Gray */
@@ -170,19 +176,20 @@
   --text-secondary: #43505e;
   --text-muted:     #6f7f91;
 
-  --syntax-keyword: #6f77b2;
-  --syntax-string:  #4c8a77;
-  --syntax-number:  #9a7954;
-  --syntax-type:    #4f7898;
-  --syntax-func:    #5f74b1;
+  --syntax-keyword: #5f6fb2;
+  --syntax-string:  #3f826d;
+  --syntax-number:  #8e6b44;
+  --syntax-type:    #446f95;
+  --syntax-func:    #5067ac;
   --syntax-variable:#92657d;
   --md-heading:     #24303d;
-  --md-syntax:      #5c6d81;
-  --md-marker:      #70839b;
+  --md-syntax:      #4e6279;
+  --md-marker:      #5f7895;
   --md-emphasis:    #4a5c70;
   --md-strong:      #1f2933;
   --md-inline-code: #3f7d69;
   --filetype-markdown: #5b7fa7;
+  --explorer-md-text: #2b5fcb;
   --filetype-code: #6673ae;
   --filetype-config: #4f8578;
   --filetype-script: #8f7450;
@@ -192,7 +199,7 @@
   --filetype-unknown: #7b8c9d;
 
   --accent-primary: #6d86ad;
-  --text-link:      #6d86ad;
+  --text-link:      #4e6fa4;
   --accent-success: #4f8a77;
   --accent-warning: #a28151;
   --accent-error:   #a56a76;
@@ -210,4 +217,5 @@
   --explorer-row-hover: rgba(209, 219, 231, 0.94);
   --explorer-row-active: rgba(195, 208, 224, 0.98);
   --explorer-row-muted: rgba(216, 225, 236, 0.9);
+  --explorer-row-md: rgba(104, 137, 177, 0.2);
 }

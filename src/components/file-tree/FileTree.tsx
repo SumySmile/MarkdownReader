@@ -220,8 +220,9 @@ function NodeRow({
   style,
   starred = false,
   hasStarredDescendant = false,
+  hasMarkdownDescendant = false,
   fileVisualType = 'unknown',
-}: NodeRendererProps<TreeNode> & { starred?: boolean; hasStarredDescendant?: boolean; fileVisualType?: FileVisualType }) {
+}: NodeRendererProps<TreeNode> & { starred?: boolean; hasStarredDescendant?: boolean; hasMarkdownDescendant?: boolean; fileVisualType?: FileVisualType }) {
   const isDir = node.data.isDirectory;
   const isOpen = node.isOpen;
   const FileIcon = getFileVisualIcon(fileVisualType);
@@ -244,11 +245,18 @@ function NodeRow({
       </span>
       <Icon
         size={14}
-        className={cn(isDir ? 'text-[var(--accent-primary)]' : '')}
-        style={isDir ? undefined : { color: getFileVisualIconColor(fileVisualType) }}
+        className={cn(isDir ? '' : '')}
+        style={
+          isDir
+            ? { color: hasMarkdownDescendant ? 'var(--explorer-md-text)' : 'var(--accent-primary)' }
+            : { color: getFileVisualIconColor(fileVisualType) }
+        }
       />
       <span
-        className="block min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-[var(--text-secondary)]"
+        className={cn(
+          'block min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-[var(--text-secondary)]',
+          isDir && hasMarkdownDescendant && 'text-[var(--explorer-md-text)]',
+        )}
         title={node.data.path}
       >
         {node.data.name}
@@ -256,9 +264,36 @@ function NodeRow({
       <span className="w-3.5 text-right justify-self-end">
         {!isDir && starred ? <Star size={12} className="text-[var(--accent-warning)] fill-current" /> : null}
         {isDir && hasStarredDescendant ? <span className="text-[10px] leading-none text-[var(--accent-warning)] opacity-90">*</span> : null}
+        {isDir && !hasStarredDescendant && hasMarkdownDescendant ? <span className="text-[10px] leading-none text-[var(--explorer-md-text)] opacity-95">m</span> : null}
       </span>
     </div>
   );
+}
+
+function collectMarkdownAncestorDirs(nodes: TreeNode[]): Set<string> {
+  const dirs = new Set<string>();
+
+  const visit = (node: TreeNode): boolean => {
+    if (!node.isDirectory) {
+      return isMarkdownPath(node.path);
+    }
+    let hasMarkdown = !!node.markdownHint;
+    if (node.children === null || node.children.length === 0) {
+      if (hasMarkdown) dirs.add(pathKey(node.path));
+      return hasMarkdown;
+    }
+
+    for (const child of node.children) {
+      if (visit(child)) hasMarkdown = true;
+    }
+    if (hasMarkdown) dirs.add(pathKey(node.path));
+    return hasMarkdown;
+  };
+
+  for (const node of nodes) {
+    visit(node);
+  }
+  return dirs;
 }
 
 function resolveMenuAnchor(currentTarget: HTMLElement, target: EventTarget | null): HTMLElement {
@@ -325,6 +360,7 @@ export function FileTree({
   const [searchQuery, setSearchQuery] = useState('');
   const [filterMdOnly, setFilterMdOnly] = useState(false);
   const [filterStarOnly, setFilterStarOnly] = useState(false);
+  const [filterMdFoldersOnly, setFilterMdFoldersOnly] = useState(false);
   const [contextMenu, setContextMenu] = useState<ContextMenuState>(null);
   const [renameDialog, setRenameDialog] = useState<RenameDialogState | null>(null);
   const [duplicateDialog, setDuplicateDialog] = useState<DuplicateDialogState | null>(null);
@@ -708,6 +744,8 @@ export function FileTree({
     }
     return dirs;
   }, [starredFiles]);
+  const markdownAncestorDirs = useMemo(() => collectMarkdownAncestorDirs(treeData), [treeData]);
+  const markdownFolderCount = markdownAncestorDirs.size;
 
   const pathMatchesQuickFilters = useCallback((path: string) => {
     if (filterMdOnly && !isMarkdownPath(path)) return false;
@@ -716,7 +754,7 @@ export function FileTree({
   }, [filterMdOnly, filterStarOnly, isStarredPath]);
 
   const filterTreeByQuickFilters = useCallback((nodes: TreeNode[]): TreeNode[] => {
-    if (!filterMdOnly && !filterStarOnly) return nodes;
+    if (!filterMdOnly && !filterStarOnly && !filterMdFoldersOnly) return nodes;
 
     const visit = (node: TreeNode): TreeNode | null => {
       if (!node.isDirectory) {
@@ -724,6 +762,7 @@ export function FileTree({
       }
 
       const nodeIsStarredAncestor = starredAncestorDirs.has(pathKey(node.path));
+      const nodeHasMarkdownDescendant = markdownAncestorDirs.has(pathKey(node.path));
 
       if (node.children === null) {
         if (filterStarOnly && !nodeIsStarredAncestor) return null;
@@ -733,7 +772,8 @@ export function FileTree({
       const nextChildren = node.children
         .map(visit)
         .filter((child): child is TreeNode => child !== null);
-      if (nextChildren.length === 0 && !(filterStarOnly && nodeIsStarredAncestor)) return null;
+      if (nextChildren.length === 0 && !(filterStarOnly && nodeIsStarredAncestor) && !(filterMdFoldersOnly && nodeHasMarkdownDescendant)) return null;
+      if (filterMdFoldersOnly && !nodeHasMarkdownDescendant && nextChildren.length === 0) return null;
 
       return { ...node, children: nextChildren } as DirectoryNode;
     };
@@ -741,7 +781,7 @@ export function FileTree({
     return nodes
       .map(visit)
       .filter((node): node is TreeNode => node !== null);
-  }, [filterMdOnly, filterStarOnly, pathMatchesQuickFilters, starredAncestorDirs]);
+  }, [filterMdFoldersOnly, filterMdOnly, filterStarOnly, markdownAncestorDirs, pathMatchesQuickFilters, starredAncestorDirs]);
 
   const visibleTreeData = useMemo(() => {
     return filterTreeByQuickFilters(treeData);
@@ -847,6 +887,20 @@ export function FileTree({
             >
               <Star size={14} className={filterStarOnly ? 'fill-current' : ''} />
             </button>
+            <button
+              type="button"
+              onClick={() => setFilterMdFoldersOnly(v => !v)}
+              className={cn(
+                'p-1 rounded transition-colors',
+                filterMdFoldersOnly
+                  ? 'text-[var(--filetype-markdown)] bg-[var(--bg-overlay)]'
+                  : 'text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-overlay)]'
+              )}
+              title={filterMdFoldersOnly ? 'Markdown folders filter: on' : 'Markdown folders filter: off'}
+              aria-label={filterMdFoldersOnly ? 'Turn off markdown folders filter' : 'Turn on markdown folders filter'}
+            >
+              <Folder size={14} />
+            </button>
           </div>
         </div>
       </div>
@@ -937,6 +991,7 @@ export function FileTree({
               <span className="w-3" />
               <Folder size={12} />
               <span>Folders</span>
+              <span className="rounded-sm bg-[var(--bg-overlay)] px-1 text-[10px] normal-case text-[var(--filetype-markdown)]">md {markdownFolderCount}</span>
               <span className="ml-auto normal-case">{pinnedDirs.length}</span>
             </div>
 
@@ -1004,6 +1059,7 @@ export function FileTree({
                         {...props}
                         starred={!props.node.data.isDirectory && isStarredPath(props.node.data.path)}
                         hasStarredDescendant={props.node.data.isDirectory && starredAncestorDirs.has(pathKey(props.node.data.path))}
+                        hasMarkdownDescendant={props.node.data.isDirectory && markdownAncestorDirs.has(pathKey(props.node.data.path))}
                         fileVisualType={props.node.data.isDirectory ? 'unknown' : getFileVisualType(props.node.data.path)}
                       />
                     </div>
@@ -1373,5 +1429,6 @@ export function FileTree({
     </div>
   );
 }
+
 
 

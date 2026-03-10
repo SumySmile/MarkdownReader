@@ -103,6 +103,49 @@ body {
 }
 .markdown-preview pre.shiki code { background: transparent !important; }
 
+.markdown-codeblock-shell {
+  margin: 1.1em 0;
+}
+
+.markdown-codeblock-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 0 2px 6px;
+  background: transparent;
+}
+
+.markdown-codeblock-lang {
+  font-size: 11px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.markdown-codeblock-copy {
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 11px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 6px;
+  cursor: pointer;
+}
+
+.markdown-codeblock-copy:hover {
+  background: var(--bg-overlay);
+  color: var(--text-primary);
+}
+
+.markdown-codeblock-shell pre {
+  margin: 0;
+  border-radius: 10px;
+}
+
 .markdown-preview blockquote {
   border-left: 3px solid color-mix(in srgb, var(--accent-primary) 80%, transparent);
   margin: 1em 0;
@@ -176,6 +219,38 @@ body {
   overflow-wrap: anywhere;
 }
 
+.markdown-frontmatter-meta {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 8px;
+  margin: 0 0 10px;
+}
+
+.markdown-frontmatter-meta-item {
+  border: 1px solid var(--bg-divider);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--bg-surface) 92%, var(--bg-overlay) 8%);
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.markdown-frontmatter-meta-key {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+}
+
+.markdown-frontmatter-meta-value {
+  font-size: 12px;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .markdown-toc-pane {
   width: 260px;
   min-width: 260px;
@@ -227,19 +302,21 @@ body {
 .markdown-toc-list {
   overflow: auto;
   padding: 6px 6px 8px;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
+  display: block;
 }
 
 .markdown-toc-item {
+  display: block;
+  width: 100%;
   border: 0;
   border-radius: 6px;
   background: transparent;
   color: var(--text-secondary);
   text-align: left;
-  padding-top: 5px;
-  padding-bottom: 5px;
+  padding: 0 8px 0 0;
+  min-height: 24px;
+  line-height: 24px;
+  margin: 0 0 2px;
   cursor: pointer;
   white-space: nowrap;
   overflow: hidden;

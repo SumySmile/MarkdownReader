@@ -2,7 +2,7 @@ import { readDir, remove, rename, watch } from '@tauri-apps/plugin-fs';
 import { open } from '@tauri-apps/plugin-dialog';
 import { openPath } from '@tauri-apps/plugin-opener';
 import { invoke } from '@tauri-apps/api/core';
-import { getOpenableExtensions, isOpenablePath } from './markdown';
+import { getOpenableExtensions, isMarkdownPath, isOpenablePath } from './markdown';
 
 export interface DirEntry {
   name: string;
@@ -72,8 +72,15 @@ export async function deletePath(path: string): Promise<void> {
 }
 
 export async function hasOpenableFilesInDirectory(path: string): Promise<boolean> {
+  const result = await inspectDirectoryContent(path);
+  return result.hasOpenable;
+}
+
+export async function inspectDirectoryContent(path: string): Promise<{ hasOpenable: boolean; hasMarkdown: boolean }> {
   const stack: string[] = [path.replace(/\\/g, '/')];
   const visited = new Set<string>();
+  let hasOpenable = false;
+  let hasMarkdown = false;
 
   while (stack.length > 0) {
     const current = stack.pop();
@@ -91,13 +98,17 @@ export async function hasOpenableFilesInDirectory(path: string): Promise<boolean
       const normalized = entry.path.replace(/\\/g, '/');
       if (entry.is_dir) {
         if (!visited.has(normalized)) stack.push(normalized);
-      } else if (isOpenablePath(normalized)) {
-        return true;
+      } else {
+        if (!hasOpenable && isOpenablePath(normalized)) hasOpenable = true;
+        if (!hasMarkdown && isMarkdownPath(normalized)) hasMarkdown = true;
+        if (hasOpenable && hasMarkdown) {
+          return { hasOpenable: true, hasMarkdown: true };
+        }
       }
     }
   }
 
-  return false;
+  return { hasOpenable, hasMarkdown };
 }
 
 export async function getLaunchArgs(): Promise<string[]> {

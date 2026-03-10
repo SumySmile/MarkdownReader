@@ -2,7 +2,7 @@ import { memo, useEffect, useMemo, useRef, useState, type ReactNode } from 'reac
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { convertFileSrc } from '@tauri-apps/api/core';
-import { ListTree, PanelRightClose, PanelRightOpen } from 'lucide-react';
+import { Check, Copy, ListTree, PanelRightClose, PanelRightOpen } from 'lucide-react';
 import { resolveRelativePath } from '../../lib/utils';
 import { highlight } from '../../lib/shiki';
 import { useDebouncedMarkdown } from '../../hooks/useDebouncedMarkdown';
@@ -30,11 +30,38 @@ interface TocHeading {
 
 const CodeBlock = memo(function CodeBlock({ code, lang, shikiTheme }: CodeBlockProps) {
   const [html, setHtml] = useState('');
+  const [copied, setCopied] = useState(false);
+  const label = lang || 'plain text';
   useEffect(() => {
     highlight(code, lang || 'text', shikiTheme).then(setHtml);
   }, [code, lang, shikiTheme]);
+  const handleCopy = () => {
+    navigator.clipboard?.writeText(code)
+      .then(() => {
+        setCopied(true);
+        window.setTimeout(() => setCopied(false), 1000);
+      })
+      .catch(() => void 0);
+  };
   if (!html) return <pre><code>{code}</code></pre>;
-  return <div dangerouslySetInnerHTML={{ __html: html }} />;
+  return (
+    <div className="markdown-codeblock-shell">
+      <div className="markdown-codeblock-toolbar">
+        <span className="markdown-codeblock-lang">{label}</span>
+        <button
+          type="button"
+          className="markdown-codeblock-copy"
+          onClick={handleCopy}
+          title={copied ? 'Copied' : 'Copy code'}
+          aria-label={copied ? 'Copied' : 'Copy code'}
+        >
+          {copied ? <Check size={12} /> : <Copy size={12} />}
+          <span>{copied ? 'Copied' : 'Copy'}</span>
+        </button>
+      </div>
+      <div dangerouslySetInnerHTML={{ __html: html }} />
+    </div>
+  );
 }, (prev, next) => prev.code === next.code && prev.lang === next.lang && prev.shikiTheme === next.shikiTheme);
 
 function resolveImageSrc(src: string | undefined, filePath: string | null): string | undefined {
@@ -63,9 +90,11 @@ function languageFromPath(filePath: string | null): string {
 }
 
 export function PreviewPane({ content, filePath, fileKind = 'markdown', theme = 'dark' }: PreviewPaneProps) {
+  const TOC_OPEN_KEY = 'preview.toc.open';
   const debounced = useDebouncedMarkdown(content, 150);
   const normalizedContent = useMemo(() => normalizePreviewContent(debounced), [debounced]);
   const frontmatterSplit = useMemo(() => splitFrontmatter(normalizedContent), [normalizedContent]);
+  const frontmatterMeta = useMemo(() => parseFrontmatterMeta(frontmatterSplit.frontmatter), [frontmatterSplit.frontmatter]);
   const shikiTheme = useMemo(() => getShikiThemeForAppTheme(theme), [theme]);
   const [textPreviewHtml, setTextPreviewHtml] = useState('');
   const textPreviewLanguage = useMemo(() => languageFromPath(filePath), [filePath]);
@@ -73,6 +102,23 @@ export function PreviewPane({ content, filePath, fileKind = 'markdown', theme = 
   const [activeHeadingId, setActiveHeadingId] = useState<string | null>(null);
   const previewScrollRef = useRef<HTMLDivElement | null>(null);
   const [tocHeadings, setTocHeadings] = useState<TocHeading[]>([]);
+
+  useEffect(() => {
+    try {
+      const open = localStorage.getItem(TOC_OPEN_KEY);
+      if (open === '0') setTocOpen(false);
+    } catch {
+      // ignore storage access errors
+    }
+  }, []);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(TOC_OPEN_KEY, tocOpen ? '1' : '0');
+    } catch {
+      // ignore storage access errors
+    }
+  }, [tocOpen]);
 
   useEffect(() => {
     if (fileKind !== 'text') return;
@@ -206,7 +252,19 @@ export function PreviewPane({ content, filePath, fileKind = 'markdown', theme = 
         style={{ color: 'var(--text-primary)', backgroundColor: 'var(--bg-base)' }}
       >
         {frontmatterSplit.frontmatter ? (
-          <pre className="markdown-frontmatter">{frontmatterSplit.frontmatter}</pre>
+          <>
+            {frontmatterMeta.length > 0 ? (
+              <div className="markdown-frontmatter-meta">
+                {frontmatterMeta.map(item => (
+                  <div key={item.key} className="markdown-frontmatter-meta-item">
+                    <span className="markdown-frontmatter-meta-key">{item.key}</span>
+                    <span className="markdown-frontmatter-meta-value" title={item.value}>{item.value}</span>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+            <pre className="markdown-frontmatter">{frontmatterSplit.frontmatter}</pre>
+          </>
         ) : null}
         <ReactMarkdown
           remarkPlugins={[remarkGfm]}
@@ -354,6 +412,20 @@ function splitFrontmatter(input: string): { frontmatter: string | null; body: st
   const frontmatter = matched[1].trimEnd();
   const body = input.slice(matched[0].length);
   return { frontmatter, body };
+}
+
+function parseFrontmatterMeta(frontmatter: string | null): Array<{ key: string; value: string }> {
+  if (!frontmatter) return [];
+  const wanted = new Set(['title', 'status', 'type', 'date', 'origin']);
+  const out: Array<{ key: string; value: string }> = [];
+  for (const raw of frontmatter.split(/\r?\n/)) {
+    const m = raw.match(/^\s*([A-Za-z0-9_-]+)\s*:\s*(.+)\s*$/);
+    if (!m) continue;
+    const key = m[1].toLowerCase();
+    if (!wanted.has(key)) continue;
+    out.push({ key, value: m[2].replace(/^["']|["']$/g, '') });
+  }
+  return out;
 }
 
 function slugifyHeading(text: string): string {
