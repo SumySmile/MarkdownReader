@@ -23,6 +23,7 @@ A desktop Markdown editor based on Tauri + React + TypeScript.
     - Fold heading at cursor and unfold all headings.
     - Keyboard shortcuts: `Ctrl+Alt+T/L/K/F/U`.
     - Quick-action row can be collapsed/expanded from the top toolbar and the state is persisted.
+    - Default startup state is collapsed (hidden) unless user preference was saved.
 - Sidebar supports both:
   - Folder explorer (for openable files in pinned directories).
   - File panel (imported files list, independent from folder tree).
@@ -38,9 +39,11 @@ A desktop Markdown editor based on Tauri + React + TypeScript.
   - Quick filters use icon toggles in the header:
     - `MD` filter icon (left of Import Files) toggles markdown-only view.
     - `Star` filter icon toggles starred-only view.
+    - No separate markdown-folder-only filter; `MD` filter applies consistently to both `Files` and `Folders`.
   - Header actions are grouped: import/pin actions and filter toggles are visually separated.
   - Star state is shared across Files and Folders for the same path.
   - Files list membership stays independent: starring in Folders does not auto-add into Files.
+  - Externally opened files (for example from OS file association) are auto-added into `Files`.
   - Star icon is rendered as a solid star for clearer state.
   - Under `MD` filter, folders that do not contain markdown files are hidden from `Folders`.
   - In `Star` filter mode, folder ancestors of starred files stay visible and are marked with `*` in Folders (without forcing expand/collapse changes).
@@ -94,6 +97,7 @@ A desktop Markdown editor based on Tauri + React + TypeScript.
   - `Rose` is a warm romantic light theme, while `Mist` is a cool blue-gray office theme.
   - Theme palettes are rebalanced to medium-high contrast for clearer syntax separation without harsh saturation.
 - Supports opening markdown file directly via OS file association (after installer install).
+- When the app is already running, opening a `.md` file brings the existing window to front and opens that file immediately.
 - Launcher scripts:
   - `MarkdownViewer.bat`
   - `QuickStart.bat`

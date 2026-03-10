@@ -364,7 +364,6 @@ export function FileTree({
   const [searchQuery, setSearchQuery] = useState('');
   const [filterMdOnly, setFilterMdOnly] = useState(false);
   const [filterStarOnly, setFilterStarOnly] = useState(false);
-  const [filterMdFoldersOnly, setFilterMdFoldersOnly] = useState(false);
   const [contextMenu, setContextMenu] = useState<ContextMenuState>(null);
   const [renameDialog, setRenameDialog] = useState<RenameDialogState | null>(null);
   const [duplicateDialog, setDuplicateDialog] = useState<DuplicateDialogState | null>(null);
@@ -758,8 +757,8 @@ export function FileTree({
   }, [filterMdOnly, filterStarOnly, isStarredPath]);
 
   const filterTreeByQuickFilters = useCallback((nodes: TreeNode[]): TreeNode[] => {
-    if (!filterMdOnly && !filterStarOnly && !filterMdFoldersOnly) return nodes;
-    const effectiveMdFolderFilter = filterMdOnly || filterMdFoldersOnly;
+    if (!filterMdOnly && !filterStarOnly) return nodes;
+    const effectiveMdFolderFilter = filterMdOnly;
 
     const visit = (node: TreeNode): TreeNode | null => {
       if (!node.isDirectory) {
@@ -787,7 +786,7 @@ export function FileTree({
     return nodes
       .map(visit)
       .filter((node): node is TreeNode => node !== null);
-  }, [filterMdFoldersOnly, filterMdOnly, filterStarOnly, markdownAncestorDirs, pathMatchesQuickFilters, starredAncestorDirs]);
+  }, [filterMdOnly, filterStarOnly, markdownAncestorDirs, pathMatchesQuickFilters, starredAncestorDirs]);
 
   const visibleTreeData = useMemo(() => {
     return filterTreeByQuickFilters(treeData);
@@ -892,20 +891,6 @@ export function FileTree({
               aria-label={filterStarOnly ? 'Turn off star filter' : 'Turn on star filter'}
             >
               <Star size={14} className={filterStarOnly ? 'fill-current' : ''} />
-            </button>
-            <button
-              type="button"
-              onClick={() => setFilterMdFoldersOnly(v => !v)}
-              className={cn(
-                'p-1 rounded transition-colors',
-                filterMdFoldersOnly
-                  ? 'text-[var(--filetype-markdown)] bg-[var(--bg-overlay)]'
-                  : 'text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-overlay)]'
-              )}
-              title={filterMdFoldersOnly ? 'Markdown folders filter: on' : 'Markdown folders filter: off'}
-              aria-label={filterMdFoldersOnly ? 'Turn off markdown folders filter' : 'Turn on markdown folders filter'}
-            >
-              <Folder size={14} />
             </button>
           </div>
         </div>

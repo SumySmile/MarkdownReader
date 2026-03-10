@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
+import { listen } from '@tauri-apps/api/event';
 import { AppLayout } from './components/layout/AppLayout';
 import { useActiveFile } from './hooks/useActiveFile';
 import { useFileWatcher } from './hooks/useFileWatcher';
@@ -74,6 +75,22 @@ function splitBaseNameAndExtension(fileName: string): { baseName: string; extens
   };
 }
 
+function stripWrappedQuotes(value: string): string {
+  const trimmed = value.trim();
+  if (trimmed.startsWith('"') && trimmed.endsWith('"') && trimmed.length >= 2) {
+    return trimmed.slice(1, -1);
+  }
+  return trimmed;
+}
+
+function getOpenableLaunchPath(args: string[]): string | null {
+  for (const arg of args) {
+    const candidate = normalizePath(stripWrappedQuotes(arg));
+    if (isOpenablePath(candidate)) return candidate;
+  }
+  return null;
+}
+
 async function filterValidPinnedDirs(paths: string[]): Promise<string[]> {
   const normalized = paths.map(normalizePath);
   const checks = await Promise.all(normalized.map(path => hasOpenableFilesInDirectory(path)));
@@ -107,7 +124,7 @@ function App() {
   const [filesPanelOpen, setFilesPanelOpen] = useState<boolean>(true);
   const [mode, setMode] = useState<EditorMode>('source');
   const [sourceSplitEnabled, setSourceSplitEnabled] = useState<boolean>(true);
-  const [markdownToolsCollapsed, setMarkdownToolsCollapsed] = useState<boolean>(false);
+  const [markdownToolsCollapsed, setMarkdownToolsCollapsed] = useState<boolean>(true);
   const [theme, setTheme] = useState<Theme>('gray');
   const [syncScroll, setSyncScroll] = useState<boolean>(true);
   const [sidebarVisible, setSidebarVisible] = useState<boolean>(true);
@@ -157,6 +174,19 @@ function App() {
       });
     }
   }, [openFile]);
+
+  const openFromLaunchArgs = useCallback(async (args: string[]): Promise<boolean> => {
+    const launchPath = getOpenableLaunchPath(args);
+    if (!launchPath) return false;
+
+    setPinnedFiles(prev => {
+      const merged = mergeUniquePaths(prev, [launchPath]);
+      void storeSet('pinnedFiles', merged);
+      return merged;
+    });
+    await openFileByPath(launchPath);
+    return true;
+  }, [openFileByPath]);
 
   useEffect(() => {
     async function restore() {
@@ -209,10 +239,10 @@ function App() {
       setExpandedDirs([]);
 
       const args = await getLaunchArgs();
-      const launchPath = args.map(normalizePath).find(isOpenablePath);
+      const launchPath = getOpenableLaunchPath(args);
       if (launchPath) {
         try {
-          await openFileByPath(launchPath);
+          await openFromLaunchArgs(args);
           const nextExpanded = getAncestorDirs(launchPath);
           setExpandedDirs(nextExpanded);
           await storeSet('expandedDirs', nextExpanded);
@@ -235,7 +265,31 @@ function App() {
       }
     }
     restore();
-  }, [openFileByPath]);
+  }, [openFileByPath, openFromLaunchArgs]);
+
+  useEffect(() => {
+    let unlisten: (() => void) | null = null;
+    let closed = false;
+
+    void (async () => {
+      unlisten = await listen<string[]>('app-launch-args', async event => {
+        if (closed) return;
+        const payload = event.payload;
+        if (!Array.isArray(payload)) return;
+
+        try {
+          await openFromLaunchArgs(payload);
+        } catch (error) {
+          console.error('[App] handle app-launch-args failed', error);
+        }
+      });
+    })();
+
+    return () => {
+      closed = true;
+      if (unlisten) unlisten();
+    };
+  }, [openFromLaunchArgs]);
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
