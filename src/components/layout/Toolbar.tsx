@@ -1,5 +1,5 @@
 ﻿import { useEffect } from 'react';
-import { Code2, Columns2, Eye, Moon, Cherry, Leaf, Save, Circle, Link2, Unlink2, ChevronUp, ChevronDown } from 'lucide-react';
+import { Code2, Columns2, Eye, Moon, Cherry, Leaf, Save, Cloud, Link2, Unlink2, ChevronUp, ChevronDown } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { SaveState } from '../../hooks/useActiveFile';
 import type { MarkdownActionType } from '../editor/SourceEditor';
@@ -55,13 +55,13 @@ const THEME_ICON: Record<Theme, typeof Moon> = {
   dark: Moon,
   mint: Leaf,
   light: Cherry,
-  gray: Circle,
+  gray: Cloud,
 };
 const THEME_TEXT: Record<Theme, string> = {
   dark: 'Dark',
   mint: 'Mint',
   light: 'Rose',
-  gray: 'Gray',
+  gray: 'Mist',
 };
 
 export function Toolbar({

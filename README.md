@@ -82,6 +82,9 @@ A desktop Markdown editor based on Tauri + React + TypeScript.
   - Preview code blocks use a flatter single-shell style (no nested frame), with tighter spacing and improved font sizing for better parity with Source readability.
   - Inline code and in-cell code labels are rendered without pill-style boxed backgrounds to keep document flow cleaner.
   - Falls back to plain text rendering if highlighting is unavailable.
+- Theme presentation:
+  - Toolbar theme labels are `Dark / Mint / Rose / Mist`.
+  - `Rose` is a warm romantic light theme, while `Mist` is a cool blue-gray office theme.
 - Supports opening markdown file directly via OS file association (after installer install).
 - Launcher scripts:
   - `MarkdownViewer.bat`
@@ -120,6 +123,7 @@ npm run tauri dev
 - App window title: `MarkdownEditor`.
 - Product name in packaging metadata: `MarkdownEditor`.
 - Dark theme palette is tuned for readability with slightly lighter deep gray backgrounds.
+- Theme naming in UI keeps a romantic style (`Mint`, `Rose`, `Mist`) while maintaining readability-first contrast rules.
 - TOC layout is hardened for dense documents: heading rows stay single-line and avoid overlap artifacts.
 - If startup or preview content seems stale after rapid file switching/importing, request sequencing and stale watcher callback guards are included to prevent old file reads from overriding current content.
 - On startup restore, pinned directories/files, expanded directory nodes, and the last opened file are restored; active file reveal is maintained without forcing it into `Files`.
