@@ -6,7 +6,13 @@ function getHighlighter(): Promise<Highlighter> {
   if (!_highlighterPromise) {
     _highlighterPromise = import('shiki').then(({ createHighlighter }) =>
       createHighlighter({
-        themes: ['github-dark', 'github-light', 'material-theme-lighter', 'one-light'],
+        themes: [
+          'github-light',
+          'one-dark-pro',
+          'rose-pine-dawn',
+          'everforest-light',
+          'one-light',
+        ],
         langs: ['javascript', 'typescript', 'python', 'rust', 'go', 'bash', 'json', 'css', 'html', 'markdown', 'yaml', 'toml'],
       })
     );

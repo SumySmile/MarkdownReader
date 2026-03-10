@@ -65,15 +65,14 @@ export function getFileVisualType(path: string | null | undefined): FileVisualTy
 export function getShikiThemeForAppTheme(theme: FileVisualTheme): string {
   switch (theme) {
     case 'dark':
-      return 'github-dark';
+      return 'one-dark-pro';
     case 'light':
-      return 'github-light';
+      return 'rose-pine-dawn';
     case 'mint':
-      return 'material-theme-lighter';
+      return 'everforest-light';
     case 'gray':
       return 'one-light';
     default:
       return 'github-light';
   }
 }
-

@@ -227,6 +227,11 @@ function NodeRow({
   const isOpen = node.isOpen;
   const FileIcon = getFileVisualIcon(fileVisualType);
   const Icon = isDir ? (isOpen ? FolderOpen : Folder) : FileIcon;
+  const folderColor = hasMarkdownDescendant
+    ? 'var(--explorer-folder-markdown)'
+    : isOpen
+      ? 'var(--explorer-folder-open)'
+      : 'var(--explorer-folder-closed)';
 
   return (
     <div
@@ -248,7 +253,7 @@ function NodeRow({
         className={cn(isDir ? '' : '')}
         style={
           isDir
-            ? { color: hasMarkdownDescendant ? 'var(--explorer-md-text)' : 'var(--accent-primary)' }
+            ? { color: folderColor }
             : { color: getFileVisualIconColor(fileVisualType) }
         }
       />

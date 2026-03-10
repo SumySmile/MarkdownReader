@@ -48,6 +48,8 @@ A desktop Markdown editor based on Tauri + React + TypeScript.
   - Files rows and folder-tree file rows share unified layout: fixed star column + consistent text color + hover/active feedback.
   - File rows in both `Files` and `Folders` use unified file-type icons with subtle semantic coloring (markdown/code/config/script/data/docs/plain).
   - Markdown-folder hint in `Folders` uses text/icon accent (no row background fill), with higher contrast tuned per theme.
+  - Folder icons are theme-customized with three states: `closed`, `open`, and `markdown-descendant`.
+  - Folder icon coloring is separated from file-type coloring to keep folder/file semantics distinct.
   - Right-click file: open / rename (name only, extension unchanged) / duplicate (custom name) / delete / star / remove / copy path / open containing folder.
   - `Open Containing Folder` works for file rows in both `Files` and `Folders`.
   - On Windows/macOS it reveals the target file in system explorer; on Linux it opens the parent directory.
@@ -78,6 +80,11 @@ A desktop Markdown editor based on Tauri + React + TypeScript.
   - Markdown files keep full Source/Preview flow and optional split behavior.
 - Text preview highlighting:
   - Preview mode maps app theme to code theme (dark/light/mint/gray) for more consistent readability.
+  - Theme-specific Shiki mapping:
+    - `Dark -> one-dark-pro`
+    - `Rose(light) -> rose-pine-dawn`
+    - `Mint -> everforest-light`
+    - `Mist(gray) -> one-light`
   - Preview mode for supported text files uses extension-based syntax highlighting when possible.
   - Preview code blocks use a flatter single-shell style (no nested frame), with tighter spacing and improved font sizing for better parity with Source readability.
   - Inline code and in-cell code labels are rendered without pill-style boxed backgrounds to keep document flow cleaner.
@@ -85,6 +92,7 @@ A desktop Markdown editor based on Tauri + React + TypeScript.
 - Theme presentation:
   - Toolbar theme labels are `Dark / Mint / Rose / Mist`.
   - `Rose` is a warm romantic light theme, while `Mist` is a cool blue-gray office theme.
+  - Theme palettes are rebalanced to medium-high contrast for clearer syntax separation without harsh saturation.
 - Supports opening markdown file directly via OS file association (after installer install).
 - Launcher scripts:
   - `MarkdownViewer.bat`
@@ -124,6 +132,8 @@ npm run tauri dev
 - Product name in packaging metadata: `MarkdownEditor`.
 - Dark theme palette is tuned for readability with slightly lighter deep gray backgrounds.
 - Theme naming in UI keeps a romantic style (`Mint`, `Rose`, `Mist`) while maintaining readability-first contrast rules.
+- Theme palettes are tuned toward medium-high contrast (clear but not harsh), avoiding washed-out bright accents.
+- Explorer folder icons are theme-customized with tri-state semantics (`closed / open / markdown-descendant`) to improve tree scanning clarity.
 - TOC layout is hardened for dense documents: heading rows stay single-line and avoid overlap artifacts.
 - If startup or preview content seems stale after rapid file switching/importing, request sequencing and stale watcher callback guards are included to prevent old file reads from overriding current content.
 - On startup restore, pinned directories/files, expanded directory nodes, and the last opened file are restored; active file reveal is maintained without forcing it into `Files`.
