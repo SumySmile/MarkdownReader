@@ -1,7 +1,8 @@
 use serde::Serialize;
 use std::fs;
-use std::path::Path;
 use std::process::Command;
+#[cfg(all(unix, not(target_os = "macos")))]
+use std::path::Path;
 
 #[derive(Serialize)]
 pub struct DirEntry {
@@ -86,14 +87,9 @@ pub async fn open_directory_native(path: String) -> Result<(), String> {
 
 #[tauri::command]
 pub async fn open_containing_folder_native(path: String) -> Result<(), String> {
-    let normalized = path.replace('/', "\\");
-    let parent = Path::new(&normalized)
-        .parent()
-        .map(|p| p.to_string_lossy().to_string())
-        .unwrap_or(normalized.clone());
-
     #[cfg(target_os = "windows")]
     {
+        let normalized = path.replace('/', "\\");
         Command::new("explorer")
             .arg(format!("/select,{}", normalized))
             .spawn()
@@ -113,8 +109,12 @@ pub async fn open_containing_folder_native(path: String) -> Result<(), String> {
 
     #[cfg(all(unix, not(target_os = "macos")))]
     {
+        let parent = Path::new(&path)
+            .parent()
+            .map(|p| p.to_string_lossy().to_string())
+            .unwrap_or(path.clone());
         Command::new("xdg-open")
-            .arg(parent.replace('\\', "/"))
+            .arg(parent)
             .spawn()
             .map_err(|e| e.to_string())?;
         return Ok(());

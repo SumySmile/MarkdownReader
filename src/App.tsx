@@ -180,6 +180,8 @@ function App() {
   const sourceScrollByFileRef = useRef<Map<string, number>>(new Map());
   const previewScrollByFileRef = useRef<Map<string, number>>(new Map());
   const openErrorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const zoomWheelAccumRef = useRef(0);
+  const zoomWheelLastAtRef = useRef(0);
   const activeFilePathRef = useRef<string | null>(null);
   const activeContentRef = useRef('');
   const { filePath, content, saveState, isOpening, openingPath, isSelfWritingRef, openFile, handleChange, saveNow } = useActiveFile();
@@ -195,6 +197,18 @@ function App() {
       openErrorTimerRef.current = null;
     }, 4000);
   }, []);
+
+  const clampZoom = useCallback((value: number) => {
+    return Math.min(CONTENT_ZOOM_MAX, Math.max(CONTENT_ZOOM_MIN, value));
+  }, []);
+
+  const applyContentZoomDelta = useCallback((delta: number) => {
+    setContentZoomPct(prev => {
+      const next = clampZoom(prev + delta);
+      if (next !== prev) void storeSet('contentZoomPct', next);
+      return next;
+    });
+  }, [clampZoom]);
 
   useEffect(() => {
     return () => {
@@ -399,24 +413,15 @@ function App() {
   }, [filePath]);
 
   useEffect(() => {
-    const clampZoom = (value: number) => Math.min(CONTENT_ZOOM_MAX, Math.max(CONTENT_ZOOM_MIN, value));
     const handler = (e: KeyboardEvent) => {
       if (e.ctrlKey && (e.key === '=' || e.key === '+' || e.code === 'NumpadAdd')) {
         e.preventDefault();
-        setContentZoomPct(prev => {
-          const next = clampZoom(prev + CONTENT_ZOOM_STEP);
-          void storeSet('contentZoomPct', next);
-          return next;
-        });
+        applyContentZoomDelta(CONTENT_ZOOM_STEP);
         return;
       }
       if (e.ctrlKey && (e.key === '-' || e.key === '_' || e.code === 'NumpadSubtract')) {
         e.preventDefault();
-        setContentZoomPct(prev => {
-          const next = clampZoom(prev - CONTENT_ZOOM_STEP);
-          void storeSet('contentZoomPct', next);
-          return next;
-        });
+        applyContentZoomDelta(-CONTENT_ZOOM_STEP);
         return;
       }
       if (e.ctrlKey && (e.key === '0' || e.code === 'Digit0' || e.code === 'Numpad0')) {
@@ -448,7 +453,28 @@ function App() {
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [openFileByPath]);
+  }, [applyContentZoomDelta, openFileByPath]);
+
+  useEffect(() => {
+    const handleWheel = (e: WheelEvent) => {
+      if (!e.ctrlKey) return;
+      e.preventDefault();
+      const now = Date.now();
+      if (now - zoomWheelLastAtRef.current > 300) {
+        zoomWheelAccumRef.current = 0;
+      }
+      zoomWheelLastAtRef.current = now;
+      zoomWheelAccumRef.current += e.deltaY;
+
+      if (Math.abs(zoomWheelAccumRef.current) < 100) return;
+      const direction = zoomWheelAccumRef.current > 0 ? -1 : 1;
+      zoomWheelAccumRef.current = 0;
+      applyContentZoomDelta(direction * CONTENT_ZOOM_STEP);
+    };
+
+    window.addEventListener('wheel', handleWheel, { passive: false });
+    return () => window.removeEventListener('wheel', handleWheel as EventListener);
+  }, [applyContentZoomDelta]);
 
   const getSourceScrollPosition = useCallback((path: string): number => {
     return sourceScrollByFileRef.current.get(pathKey(path)) ?? 0;

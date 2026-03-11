@@ -145,11 +145,7 @@ export function AppLayout({
     setMarkdownAction({ type, seq: Date.now() });
   };
 
-  const editorArea = isOpening ? (
-    <div className="flex h-full items-center justify-center" style={{ color: 'var(--text-muted)' }}>
-      <div className="text-sm">Opening {openingFileName}...</div>
-    </div>
-  ) : activeFile ? (
+  const editorArea = activeFile ? (
     <div className="flex flex-col h-full">
       {enableSplitPane ? (
         <SplitPane
@@ -202,7 +198,28 @@ export function AppLayout({
       )}
     </div>
   ) : (
-    <WelcomeCard />
+    <div className="relative h-full">
+      <WelcomeCard />
+      {isOpening && (
+        <div
+          className="absolute inset-0 z-30 flex items-center justify-center backdrop-blur-[1px]"
+          style={{
+            backgroundColor: 'color-mix(in srgb, var(--bg-base) 75%, transparent)',
+            color: 'var(--text-muted)',
+          }}
+          aria-live="polite"
+        >
+          <div className="flex items-center gap-2 rounded-md border px-3 py-2 text-sm" style={{ borderColor: 'var(--bg-divider)', backgroundColor: 'var(--bg-overlay)' }}>
+            <span
+              className="inline-block h-2.5 w-2.5 animate-pulse rounded-full"
+              style={{ backgroundColor: 'var(--accent-primary)' }}
+              aria-hidden="true"
+            />
+            <span>Opening {openingFileName}...</span>
+          </div>
+        </div>
+      )}
+    </div>
   );
 
   return (
@@ -337,7 +354,7 @@ export function AppLayout({
               </div>
             </div>
         )}
-        <div className="flex-1 overflow-hidden">
+        <div className="relative flex-1 overflow-hidden">
           <ErrorBoundary
             resetKeys={[activeFile, mode, sourceSplitEnabled, theme, editorErrorNonce]}
             onError={(error) => {
@@ -365,6 +382,25 @@ export function AppLayout({
           >
             {editorArea}
           </ErrorBoundary>
+          {isOpening && activeFile && (
+            <div
+              className="absolute inset-0 z-30 flex items-center justify-center backdrop-blur-[1px]"
+              style={{
+                backgroundColor: 'color-mix(in srgb, var(--bg-base) 72%, transparent)',
+                color: 'var(--text-muted)',
+              }}
+              aria-live="polite"
+            >
+              <div className="flex items-center gap-2 rounded-md border px-3 py-2 text-sm" style={{ borderColor: 'var(--bg-divider)', backgroundColor: 'var(--bg-overlay)' }}>
+                <span
+                  className="inline-block h-2.5 w-2.5 animate-pulse rounded-full"
+                  style={{ backgroundColor: 'var(--accent-primary)' }}
+                  aria-hidden="true"
+                />
+                <span>Opening {openingFileName}...</span>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 

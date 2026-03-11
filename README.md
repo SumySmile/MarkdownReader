@@ -105,7 +105,7 @@ A desktop Markdown editor based on Tauri + React + TypeScript.
   - During rapid A/B open operations, only the latest request is applied.
   - If opening fails (missing/permission), current file state remains unchanged.
   - Opening phase blocks edit/save writes to prevent accidental overwrite on target file.
-  - While opening a new file, editor area shows a dedicated `Opening ...` placeholder to avoid stale-content flash.
+  - While opening a new file, editor area now keeps current content visible with a busy read-only overlay (`Opening ...`) to avoid stale-content flash and "app frozen" confusion.
   - Open failures are surfaced as a visible inline error message in the main area (auto-dismiss), not only console logs.
 - Launcher scripts:
   - `MarkdownViewer.bat`
@@ -149,6 +149,7 @@ npm run tauri dev
 - Explorer folder icons are theme-customized with tri-state semantics (`closed / open / markdown-descendant`) to improve tree scanning clarity.
 - TOC layout is hardened for dense documents: heading rows stay single-line and avoid overlap artifacts.
 - If startup or preview content seems stale after rapid file switching/importing, request sequencing and stale watcher callback guards are included to prevent old file reads from overriding current content.
+- During file opening, the editor intentionally becomes non-interactive and shows a busy overlay; editing/saving resumes automatically once the latest open request is resolved.
 - On startup restore, pinned directories/files, expanded directory nodes, and the last opened file are restored; active file reveal is maintained without forcing it into `Files`.
 - On startup, the app auto-reveals the active file path in Folders by expanding only its ancestor chain; other folders remain collapsed by default.
 - Sidebar hide/show keeps tree instance mounted, preserving folder expansion and current selection when reopened.
