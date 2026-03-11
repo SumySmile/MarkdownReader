@@ -1,4 +1,4 @@
-import { memo, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { memo, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { convertFileSrc } from '@tauri-apps/api/core';
@@ -14,6 +14,9 @@ interface PreviewPaneProps {
   filePath: string | null;
   fileKind?: FileKind | null;
   theme?: FileVisualTheme;
+  contentZoomPct?: number;
+  getScrollPosition?: (path: string) => number;
+  setScrollPosition?: (path: string, top: number) => void;
 }
 
 interface CodeBlockProps {
@@ -91,7 +94,15 @@ function languageFromPath(filePath: string | null): string {
   return 'text';
 }
 
-export function PreviewPane({ content, filePath, fileKind = 'markdown', theme = 'dark' }: PreviewPaneProps) {
+export function PreviewPane({
+  content,
+  filePath,
+  fileKind = 'markdown',
+  theme = 'dark',
+  contentZoomPct = 110,
+  getScrollPosition,
+  setScrollPosition,
+}: PreviewPaneProps) {
   const TOC_OPEN_KEY = 'preview.toc.open';
   const debounced = useDebouncedMarkdown(content, 150);
   const normalizedContent = useMemo(() => normalizePreviewContent(debounced), [debounced]);
@@ -103,7 +114,13 @@ export function PreviewPane({ content, filePath, fileKind = 'markdown', theme = 
   const [tocOpen, setTocOpen] = useState(true);
   const [activeHeadingId, setActiveHeadingId] = useState<string | null>(null);
   const previewScrollRef = useRef<HTMLDivElement | null>(null);
+  const prevFilePathRef = useRef<string | null>(null);
   const [tocHeadings, setTocHeadings] = useState<TocHeading[]>([]);
+  const contentZoom = Math.max(90, Math.min(130, contentZoomPct)) / 100;
+  const previewZoomStyle: CSSProperties = {
+    ['--content-zoom' as string]: `${contentZoom}`,
+    fontSize: 'calc(15px * var(--content-zoom, 1))',
+  };
 
   useEffect(() => {
     try {
@@ -205,17 +222,49 @@ export function PreviewPane({ content, filePath, fileKind = 'markdown', theme = 
     };
   }, [fileKind, tocHeadings, normalizedContent]);
 
+  useEffect(() => {
+    const el = previewScrollRef.current;
+    if (!el) return;
+
+    const prevFile = prevFilePathRef.current;
+    if (prevFile && prevFile !== filePath && setScrollPosition) {
+      setScrollPosition(prevFile, el.scrollTop);
+    }
+    prevFilePathRef.current = filePath;
+
+    if (!filePath) {
+      el.scrollTop = 0;
+      return;
+    }
+    const nextTop = getScrollPosition ? getScrollPosition(filePath) : 0;
+    requestAnimationFrame(() => {
+      el.scrollTop = Math.max(0, nextTop);
+    });
+  }, [filePath, getScrollPosition, setScrollPosition]);
+
+  useEffect(() => {
+    const el = previewScrollRef.current;
+    if (!el) return;
+    const onScroll = () => {
+      if (!filePath || !setScrollPosition) return;
+      setScrollPosition(filePath, el.scrollTop);
+    };
+    el.addEventListener('scroll', onScroll, { passive: true });
+    return () => el.removeEventListener('scroll', onScroll);
+  }, [filePath, setScrollPosition]);
+
   if (fileKind === 'text') {
     return (
       <div
+        ref={previewScrollRef}
         className="h-full overflow-auto app-scrollbar px-8 py-6"
-        style={{ color: 'var(--text-primary)', backgroundColor: 'var(--bg-base)' }}
+        style={{ color: 'var(--text-primary)', backgroundColor: 'var(--bg-base)', ...previewZoomStyle }}
       >
         {textPreviewHtml ? (
           <div dangerouslySetInnerHTML={{ __html: textPreviewHtml }} />
         ) : (
           <pre
-            className="whitespace-pre-wrap break-words text-sm leading-6"
+            className="whitespace-pre-wrap break-words"
             style={{ fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Consolas, Liberation Mono, monospace' }}
           >
             {content}
@@ -251,7 +300,7 @@ export function PreviewPane({ content, filePath, fileKind = 'markdown', theme = 
       <div
         ref={previewScrollRef}
         className="flex-1 overflow-auto app-scrollbar px-8 py-6 markdown-preview"
-        style={{ color: 'var(--text-primary)', backgroundColor: 'var(--bg-base)' }}
+        style={{ color: 'var(--text-primary)', backgroundColor: 'var(--bg-base)', ...previewZoomStyle }}
       >
         {frontmatterSplit.frontmatter ? (
           <>

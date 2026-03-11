@@ -137,6 +137,10 @@ async function filterValidPinnedDirs(paths: string[]): Promise<string[]> {
 }
 
 const MAX_EDITABLE_BYTES = 1 * 1024 * 1024;
+const CONTENT_ZOOM_MIN = 90;
+const CONTENT_ZOOM_MAX = 130;
+const CONTENT_ZOOM_STEP = 10;
+const CONTENT_ZOOM_DEFAULT = 110;
 
 function byteLength(text: string): number {
   return new TextEncoder().encode(text).length;
@@ -167,13 +171,16 @@ function App() {
   const [theme, setTheme] = useState<Theme>('gray');
   const [syncScroll, setSyncScroll] = useState<boolean>(true);
   const [sidebarVisible, setSidebarVisible] = useState<boolean>(true);
+  const [contentZoomPct, setContentZoomPct] = useState<number>(CONTENT_ZOOM_DEFAULT);
   const [expandedDirs, setExpandedDirs] = useState<string[]>([]);
   const [activeFileKind, setActiveFileKind] = useState<FileKind | null>(null);
   const [activeFileEditable, setActiveFileEditable] = useState<boolean>(true);
   const [readonlyReason, setReadonlyReason] = useState<string | null>(null);
+  const sourceScrollByFileRef = useRef<Map<string, number>>(new Map());
+  const previewScrollByFileRef = useRef<Map<string, number>>(new Map());
   const activeFilePathRef = useRef<string | null>(null);
   const activeContentRef = useRef('');
-  const { filePath, content, saveState, isSelfWritingRef, openFile, handleChange, saveNow } = useActiveFile();
+  const { filePath, content, saveState, isOpening, isSelfWritingRef, openFile, handleChange, saveNow } = useActiveFile();
 
   useEffect(() => {
     activeFilePathRef.current = filePath;
@@ -274,6 +281,11 @@ function App() {
 
       const savedSidebarVisible = await storeGet<boolean>('sidebarVisible');
       if (typeof savedSidebarVisible === 'boolean') setSidebarVisible(savedSidebarVisible);
+      const savedContentZoomPct = await storeGet<number>('contentZoomPct');
+      if (typeof savedContentZoomPct === 'number' && Number.isFinite(savedContentZoomPct)) {
+        const clamped = Math.min(CONTENT_ZOOM_MAX, Math.max(CONTENT_ZOOM_MIN, Math.round(savedContentZoomPct)));
+        setContentZoomPct(clamped);
+      }
 
       setExpandedDirs([]);
 
@@ -361,7 +373,32 @@ function App() {
   }, [filePath]);
 
   useEffect(() => {
+    const clampZoom = (value: number) => Math.min(CONTENT_ZOOM_MAX, Math.max(CONTENT_ZOOM_MIN, value));
     const handler = (e: KeyboardEvent) => {
+      if (e.ctrlKey && (e.key === '=' || e.key === '+' || e.code === 'NumpadAdd')) {
+        e.preventDefault();
+        setContentZoomPct(prev => {
+          const next = clampZoom(prev + CONTENT_ZOOM_STEP);
+          void storeSet('contentZoomPct', next);
+          return next;
+        });
+        return;
+      }
+      if (e.ctrlKey && (e.key === '-' || e.key === '_' || e.code === 'NumpadSubtract')) {
+        e.preventDefault();
+        setContentZoomPct(prev => {
+          const next = clampZoom(prev - CONTENT_ZOOM_STEP);
+          void storeSet('contentZoomPct', next);
+          return next;
+        });
+        return;
+      }
+      if (e.ctrlKey && (e.key === '0' || e.code === 'Digit0' || e.code === 'Numpad0')) {
+        e.preventDefault();
+        setContentZoomPct(CONTENT_ZOOM_DEFAULT);
+        void storeSet('contentZoomPct', CONTENT_ZOOM_DEFAULT);
+        return;
+      }
       if (e.ctrlKey && e.key.toLowerCase() === 'o') {
         e.preventDefault();
         pickOpenableTextFiles()
@@ -386,6 +423,22 @@ function App() {
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
   }, [openFileByPath]);
+
+  const getSourceScrollPosition = useCallback((path: string): number => {
+    return sourceScrollByFileRef.current.get(pathKey(path)) ?? 0;
+  }, []);
+
+  const setSourceScrollPosition = useCallback((path: string, top: number) => {
+    sourceScrollByFileRef.current.set(pathKey(path), Math.max(0, top));
+  }, []);
+
+  const getPreviewScrollPosition = useCallback((path: string): number => {
+    return previewScrollByFileRef.current.get(pathKey(path)) ?? 0;
+  }, []);
+
+  const setPreviewScrollPosition = useCallback((path: string, top: number) => {
+    previewScrollByFileRef.current.set(pathKey(path), Math.max(0, top));
+  }, []);
 
   const handlePinDir = async (path: string) => {
     const normalized = normalizePath(path);
@@ -668,6 +721,7 @@ function App() {
   };
 
   const handleContentChange = (text: string) => {
+    if (isOpening) return;
     if (!activeFileEditable) return;
     handleChange(text);
   };
@@ -722,6 +776,11 @@ function App() {
       onToggleSidebar={handleToggleSidebar}
       onExpandedDirsChange={handleExpandedDirsChange}
       onSave={handleSave}
+      contentZoomPct={contentZoomPct}
+      getSourceScrollPosition={getSourceScrollPosition}
+      setSourceScrollPosition={setSourceScrollPosition}
+      getPreviewScrollPosition={getPreviewScrollPosition}
+      setPreviewScrollPosition={setPreviewScrollPosition}
     />
   );
 }

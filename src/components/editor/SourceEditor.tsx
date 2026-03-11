@@ -1,4 +1,4 @@
-import { useRef, useMemo, useEffect, useState } from 'react';
+import { useRef, useMemo, useEffect, useState, type CSSProperties } from 'react';
 import { useCodeMirror } from './useCodeMirror';
 import { markdown, markdownLanguage } from '@codemirror/lang-markdown';
 import { languages } from '@codemirror/language-data';
@@ -28,6 +28,9 @@ interface SourceEditorProps {
   filePath: string | null;
   readOnly?: boolean;
   markdownAction?: MarkdownEditorAction | null;
+  contentZoomPct?: number;
+  getScrollPosition?: (path: string) => number;
+  setScrollPosition?: (path: string, top: number) => void;
 }
 
 const baseTheme = EditorView.theme({
@@ -35,7 +38,7 @@ const baseTheme = EditorView.theme({
     height: '100%',
     backgroundColor: 'var(--bg-base)',
     color: 'var(--text-primary)',
-    fontSize: '14px',
+    fontSize: 'calc(15px * var(--content-zoom, 1))',
     fontFamily: "'JetBrains Mono', 'Fira Code', 'Consolas', monospace",
   },
   '.cm-content': { padding: '12px 0', caretColor: 'var(--accent-primary)' },
@@ -176,9 +179,19 @@ function getLanguageFilename(path: string | null): string | null {
   return slash >= 0 ? normalized.slice(slash + 1) : normalized;
 }
 
-export function SourceEditor({ content, onChange, filePath, readOnly = false, markdownAction = null }: SourceEditorProps) {
+export function SourceEditor({
+  content,
+  onChange,
+  filePath,
+  readOnly = false,
+  markdownAction = null,
+  contentZoomPct = 110,
+  getScrollPosition,
+  setScrollPosition,
+}: SourceEditorProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [languageExtension, setLanguageExtension] = useState<Extension>([]);
+  const prevFilePathRef = useRef<string | null>(null);
   const fileName = getLanguageFilename(filePath);
   const isMarkdownFile = !!fileName && ['.md', '.markdown', '.mdx'].some(ext => fileName.toLowerCase().endsWith(ext));
   const highlightProfile = useMemo(
@@ -308,11 +321,52 @@ export function SourceEditor({ content, onChange, filePath, readOnly = false, ma
   const viewRef = useCodeMirror({ containerRef, value: content, onChange, extensions });
 
   useEffect(() => {
+    const view = viewRef.current;
+    if (!view) return;
+    const scroller = view.scrollDOM;
+    if (!scroller) return;
+    const onScroll = () => {
+      if (!filePath || !setScrollPosition) return;
+      setScrollPosition(filePath, scroller.scrollTop);
+    };
+    scroller.addEventListener('scroll', onScroll, { passive: true });
+    return () => scroller.removeEventListener('scroll', onScroll);
+  }, [filePath, setScrollPosition, viewRef]);
+
+  useEffect(() => {
+    const view = viewRef.current;
+    if (!view) return;
+    const scroller = view.scrollDOM;
+    if (!scroller) return;
+
+    const prevFile = prevFilePathRef.current;
+    if (prevFile && prevFile !== filePath && setScrollPosition) {
+      setScrollPosition(prevFile, scroller.scrollTop);
+    }
+
+    prevFilePathRef.current = filePath;
+
+    if (!filePath) {
+      scroller.scrollTop = 0;
+      return;
+    }
+
+    const nextTop = getScrollPosition ? getScrollPosition(filePath) : 0;
+    requestAnimationFrame(() => {
+      scroller.scrollTop = Math.max(0, nextTop);
+    });
+  }, [filePath, getScrollPosition, setScrollPosition, viewRef]);
+
+  useEffect(() => {
     if (!markdownAction?.seq) return;
     const view = viewRef.current;
     if (!view) return;
     applyMarkdownAction(view, markdownAction.type);
   }, [markdownAction, viewRef, readOnly, isMarkdownFile]);
 
-  return <div ref={containerRef} className="h-full overflow-hidden" />;
+  const zoomStyle: CSSProperties = {
+    ['--content-zoom' as string]: `${Math.max(90, Math.min(130, contentZoomPct)) / 100}`,
+  };
+
+  return <div ref={containerRef} className="h-full overflow-hidden" style={zoomStyle} />;
 }

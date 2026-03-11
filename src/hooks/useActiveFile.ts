@@ -8,6 +8,7 @@ export function useActiveFile() {
   const [filePath, setFilePath] = useState<string | null>(null);
   const [content, setContent] = useState('');
   const [saveState, setSaveState] = useState<SaveState>('clean');
+  const [isOpening, setIsOpening] = useState(false);
   const isSelfWritingRef = useRef(false);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const openSeqRef = useRef(0);
@@ -18,16 +19,25 @@ export function useActiveFile() {
       clearTimeout(saveTimerRef.current);
       saveTimerRef.current = null;
     }
-    const text = await readFile(path);
-    if (seq !== openSeqRef.current) return { opened: false };
-    setFilePath(path);
-    setContent(text);
-    setSaveState('clean');
-    await storeSet('lastOpenedFile', path);
-    return { opened: true, content: text };
+    setIsOpening(true);
+    try {
+      const text = await readFile(path);
+      if (seq !== openSeqRef.current) return { opened: false };
+      setFilePath(path);
+      setContent(text);
+      setSaveState('clean');
+      await storeSet('lastOpenedFile', path);
+      return { opened: true, content: text };
+    } catch {
+      if (seq !== openSeqRef.current) return { opened: false };
+      return { opened: false };
+    } finally {
+      if (seq === openSeqRef.current) setIsOpening(false);
+    }
   }, []);
 
   const handleChange = useCallback((newText: string) => {
+    if (isOpening) return;
     setContent(newText);
     setSaveState('dirty');
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
@@ -44,9 +54,10 @@ export function useActiveFile() {
       }
       setTimeout(() => { isSelfWritingRef.current = false; }, 1000);
     }, 1000);
-  }, [filePath]);
+  }, [filePath, isOpening]);
 
   const saveNow = useCallback(async () => {
+    if (isOpening) return;
     if (!filePath || saveState === 'clean') return;
     if (saveTimerRef.current) {
       clearTimeout(saveTimerRef.current);
@@ -62,12 +73,13 @@ export function useActiveFile() {
       setSaveState('error');
     }
     setTimeout(() => { isSelfWritingRef.current = false; }, 1000);
-  }, [filePath, content, saveState]);
+  }, [filePath, content, saveState, isOpening]);
 
   return {
     filePath,
     content,
     saveState,
+    isOpening,
     isDirty: saveState === 'dirty',
     isSelfWritingRef,
     openFile,

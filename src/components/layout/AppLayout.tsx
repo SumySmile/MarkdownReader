@@ -54,6 +54,11 @@ interface AppLayoutProps {
   onToggleSidebar: () => void;
   onExpandedDirsChange: (paths: string[]) => void;
   onSave: () => void;
+  contentZoomPct: number;
+  getSourceScrollPosition: (path: string) => number;
+  setSourceScrollPosition: (path: string, top: number) => void;
+  getPreviewScrollPosition: (path: string) => number;
+  setPreviewScrollPosition: (path: string, top: number) => void;
 }
 
 function WelcomeCard() {
@@ -116,6 +121,11 @@ export function AppLayout({
   onToggleSidebar,
   onExpandedDirsChange,
   onSave,
+  contentZoomPct,
+  getSourceScrollPosition,
+  setSourceScrollPosition,
+  getPreviewScrollPosition,
+  setPreviewScrollPosition,
 }: AppLayoutProps) {
   const [editorErrorNonce, setEditorErrorNonce] = useState(0);
   const [editorErrorMessage, setEditorErrorMessage] = useState<string | null>(null);
@@ -133,13 +143,51 @@ export function AppLayout({
       {enableSplitPane ? (
         <SplitPane
           syncScroll={syncScroll}
-          left={<SourceEditor content={content} onChange={onContentChange} filePath={activeFile} readOnly={!activeFileEditable} markdownAction={markdownAction} />}
-          right={<PreviewPane content={content} filePath={activeFile} fileKind={previewKind} theme={theme} />}
+          left={
+            <SourceEditor
+              content={content}
+              onChange={onContentChange}
+              filePath={activeFile}
+              readOnly={!activeFileEditable}
+              markdownAction={markdownAction}
+              contentZoomPct={contentZoomPct}
+              getScrollPosition={getSourceScrollPosition}
+              setScrollPosition={setSourceScrollPosition}
+            />
+          }
+          right={
+            <PreviewPane
+              content={content}
+              filePath={activeFile}
+              fileKind={previewKind}
+              theme={theme}
+              contentZoomPct={contentZoomPct}
+              getScrollPosition={getPreviewScrollPosition}
+              setScrollPosition={setPreviewScrollPosition}
+            />
+          }
         />
       ) : mode === 'source' ? (
-        <SourceEditor content={content} onChange={onContentChange} filePath={activeFile} readOnly={!activeFileEditable} markdownAction={markdownAction} />
+        <SourceEditor
+          content={content}
+          onChange={onContentChange}
+          filePath={activeFile}
+          readOnly={!activeFileEditable}
+          markdownAction={markdownAction}
+          contentZoomPct={contentZoomPct}
+          getScrollPosition={getSourceScrollPosition}
+          setScrollPosition={setSourceScrollPosition}
+        />
       ) : (
-        <PreviewPane content={content} filePath={activeFile} fileKind={previewKind} theme={theme} />
+        <PreviewPane
+          content={content}
+          filePath={activeFile}
+          fileKind={previewKind}
+          theme={theme}
+          contentZoomPct={contentZoomPct}
+          getScrollPosition={getPreviewScrollPosition}
+          setScrollPosition={setPreviewScrollPosition}
+        />
       )}
     </div>
   ) : (

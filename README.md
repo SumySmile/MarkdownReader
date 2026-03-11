@@ -100,6 +100,11 @@ A desktop Markdown editor based on Tauri + React + TypeScript.
 - When the app is already running, opening a `.md` file brings the existing window to front and opens that file immediately.
 - Single-instance launch handling now restores minimized windows before focusing, so double-clicking `.md` while minimized still responds.
 - Launch-argument parsing is hardened for `file://` URIs, encoded paths, and `--path=...` style args, ensuring externally opened files are added to `Files` and opened correctly.
+- File opening safety semantics:
+  - Active file context switches only after file read succeeds.
+  - During rapid A/B open operations, only the latest request is applied.
+  - If opening fails (missing/permission), current file state remains unchanged.
+  - Opening phase blocks edit/save writes to prevent accidental overwrite on target file.
 - Launcher scripts:
   - `MarkdownViewer.bat`
   - `QuickStart.bat`
