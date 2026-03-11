@@ -7,6 +7,7 @@ import { storeGet, storeSet } from './lib/store';
 import { deletePath, getLaunchArgs, hasOpenableFilesInDirectory, openContainingFolder, openDirectory, pickOpenableTextFiles, readFile, renamePath, writeFile } from './lib/fs';
 import { getFileKind, isEditablePath, isOpenablePath, isReadonlyPreviewPath, isSizeLimitExemptPath, type FileKind } from './lib/markdown';
 import { normalizePath, pathKey } from './lib/path';
+import { lruGet, lruSet } from './lib/lruMap';
 import type { EditorMode, Theme } from './components/layout/Toolbar';
 import { THEME_NEXT } from './components/layout/Toolbar';
 
@@ -141,6 +142,7 @@ const CONTENT_ZOOM_MIN = 90;
 const CONTENT_ZOOM_MAX = 130;
 const CONTENT_ZOOM_STEP = 10;
 const CONTENT_ZOOM_DEFAULT = 110;
+const MAX_SCROLL_MEMORY_FILES = 200;
 
 function byteLength(text: string): number {
   return new TextEncoder().encode(text).length;
@@ -477,19 +479,19 @@ function App() {
   }, [applyContentZoomDelta]);
 
   const getSourceScrollPosition = useCallback((path: string): number => {
-    return sourceScrollByFileRef.current.get(pathKey(path)) ?? 0;
+    return lruGet(sourceScrollByFileRef.current, pathKey(path)) ?? 0;
   }, []);
 
   const setSourceScrollPosition = useCallback((path: string, top: number) => {
-    sourceScrollByFileRef.current.set(pathKey(path), Math.max(0, top));
+    lruSet(sourceScrollByFileRef.current, pathKey(path), Math.max(0, top), MAX_SCROLL_MEMORY_FILES);
   }, []);
 
   const getPreviewScrollPosition = useCallback((path: string): number => {
-    return previewScrollByFileRef.current.get(pathKey(path)) ?? 0;
+    return lruGet(previewScrollByFileRef.current, pathKey(path)) ?? 0;
   }, []);
 
   const setPreviewScrollPosition = useCallback((path: string, top: number) => {
-    previewScrollByFileRef.current.set(pathKey(path), Math.max(0, top));
+    lruSet(previewScrollByFileRef.current, pathKey(path), Math.max(0, top), MAX_SCROLL_MEMORY_FILES);
   }, []);
 
   const handlePinDir = async (path: string) => {

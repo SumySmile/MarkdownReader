@@ -107,6 +107,9 @@ A desktop Markdown editor based on Tauri + React + TypeScript.
   - Opening phase blocks edit/save writes to prevent accidental overwrite on target file.
   - While opening a new file, editor area now keeps current content visible with a busy read-only overlay (`Opening ...`) to avoid stale-content flash and "app frozen" confusion.
   - Open failures are surfaced as a visible inline error message in the main area (auto-dismiss), not only console logs.
+- Scroll memory policy:
+  - Source/Preview scroll positions are cached per file within the current session.
+  - Cache now uses bounded LRU eviction (max 200 files) to avoid unbounded growth in long sessions.
 - Launcher scripts:
   - `MarkdownViewer.bat`
   - `QuickStart.bat`
@@ -138,6 +141,12 @@ npm run tauri dev
 ```
 
 `QuickStart.bat` starts development mode directly, so each launch uses the latest local code.
+
+Run automated regression tests:
+
+```powershell
+npm test
+```
 
 ## Notes
 
