@@ -4,7 +4,6 @@ import remarkGfm from 'remark-gfm';
 import { convertFileSrc } from '@tauri-apps/api/core';
 import { Check, Copy, ListTree, PanelRightClose, PanelRightOpen } from 'lucide-react';
 import { resolveRelativePath } from '../../lib/utils';
-import { highlight } from '../../lib/shiki';
 import { useDebouncedMarkdown } from '../../hooks/useDebouncedMarkdown';
 import type { FileKind } from '../../lib/markdown';
 import { getShikiThemeForAppTheme, type FileVisualTheme } from '../../lib/fileVisualType';
@@ -31,6 +30,14 @@ interface TocHeading {
   level: 1 | 2 | 3 | 4;
 }
 
+let highlightModulePromise: Promise<typeof import('../../lib/shiki')> | null = null;
+function highlightAsync(code: string, lang: string, theme: string): Promise<string> {
+  if (!highlightModulePromise) {
+    highlightModulePromise = import('../../lib/shiki');
+  }
+  return highlightModulePromise.then(mod => mod.highlight(code, lang, theme));
+}
+
 const CodeBlock = memo(function CodeBlock({ code, lang, shikiTheme }: CodeBlockProps) {
   const [html, setHtml] = useState('');
   const [copied, setCopied] = useState(false);
@@ -38,7 +45,7 @@ const CodeBlock = memo(function CodeBlock({ code, lang, shikiTheme }: CodeBlockP
   const isPlain = normalizedLang.length === 0 || normalizedLang === 'text' || normalizedLang === 'plaintext' || normalizedLang === 'plain';
   const label = isPlain ? 'text' : normalizedLang;
   useEffect(() => {
-    highlight(code, lang || 'text', shikiTheme).then(setHtml);
+    highlightAsync(code, lang || 'text', shikiTheme).then(setHtml);
   }, [code, lang, shikiTheme]);
   const handleCopy = () => {
     navigator.clipboard?.writeText(code)
@@ -142,7 +149,7 @@ export function PreviewPane({
   useEffect(() => {
     if (fileKind !== 'text') return;
     let cancelled = false;
-    highlight(content, textPreviewLanguage, shikiTheme)
+    highlightAsync(content, textPreviewLanguage, shikiTheme)
       .then(html => {
         if (!cancelled) setTextPreviewHtml(html);
       })
