@@ -105,6 +105,8 @@ A desktop Markdown editor based on Tauri + React + TypeScript.
   - During rapid A/B open operations, only the latest request is applied.
   - If opening fails (missing/permission), current file state remains unchanged.
   - Opening phase blocks edit/save writes to prevent accidental overwrite on target file.
+  - While opening a new file, editor area shows a dedicated `Opening ...` placeholder to avoid stale-content flash.
+  - Open failures are surfaced as a visible inline error message in the main area (auto-dismiss), not only console logs.
 - Launcher scripts:
   - `MarkdownViewer.bat`
   - `QuickStart.bat`

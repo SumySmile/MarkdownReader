@@ -35,8 +35,11 @@ interface AppLayoutProps {
   activeFileKind: FileKind | null;
   activeFileEditable: boolean;
   readonlyReason: string | null;
+  openErrorMessage: string | null;
   content: string;
   saveState: SaveState;
+  isOpening: boolean;
+  openingFile: string | null;
   mode: EditorMode;
   sourceSplitEnabled: boolean;
   markdownToolsCollapsed: boolean;
@@ -102,8 +105,11 @@ export function AppLayout({
   activeFileKind,
   activeFileEditable,
   readonlyReason,
+  openErrorMessage,
   content,
   saveState,
+  isOpening,
+  openingFile,
   mode,
   sourceSplitEnabled,
   markdownToolsCollapsed,
@@ -134,11 +140,16 @@ export function AppLayout({
   const isMarkdownFile = previewKind === 'markdown';
   const enableSplitPane = mode === 'source' && isMarkdownFile && sourceSplitEnabled;
   const showMarkdownActionBar = !!activeFile && mode === 'source' && isMarkdownFile;
+  const openingFileName = openingFile ? openingFile.split(/[\\/]/).pop() ?? openingFile : 'file';
   const triggerMarkdownAction = (type: MarkdownActionType) => {
     setMarkdownAction({ type, seq: Date.now() });
   };
 
-  const editorArea = activeFile ? (
+  const editorArea = isOpening ? (
+    <div className="flex h-full items-center justify-center" style={{ color: 'var(--text-muted)' }}>
+      <div className="text-sm">Opening {openingFileName}...</div>
+    </div>
+  ) : activeFile ? (
     <div className="flex flex-col h-full">
       {enableSplitPane ? (
         <SplitPane
@@ -255,6 +266,18 @@ export function AppLayout({
           fileName={activeFile}
           onMarkdownAction={triggerMarkdownAction}
         />
+        {openErrorMessage && (
+          <div
+            className="px-3 py-1.5 text-xs border-b"
+            style={{
+              color: 'var(--accent-error)',
+              borderColor: 'var(--bg-divider)',
+              backgroundColor: 'var(--bg-overlay)',
+            }}
+          >
+            {openErrorMessage}
+          </div>
+        )}
         {showMarkdownActionBar && !markdownToolsCollapsed && (
             <div
               className="flex items-center px-3 py-1 border-b"

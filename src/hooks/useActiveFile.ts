@@ -3,23 +3,30 @@ import { readFile, writeFile } from '../lib/fs';
 import { storeSet } from '../lib/store';
 
 export type SaveState = 'clean' | 'dirty' | 'saving' | 'saved' | 'error';
+export interface OpenFileResult {
+  opened: boolean;
+  content?: string;
+  error?: string;
+}
 
 export function useActiveFile() {
   const [filePath, setFilePath] = useState<string | null>(null);
   const [content, setContent] = useState('');
   const [saveState, setSaveState] = useState<SaveState>('clean');
   const [isOpening, setIsOpening] = useState(false);
+  const [openingPath, setOpeningPath] = useState<string | null>(null);
   const isSelfWritingRef = useRef(false);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const openSeqRef = useRef(0);
 
-  const openFile = useCallback(async (path: string): Promise<{ opened: boolean; content?: string }> => {
+  const openFile = useCallback(async (path: string): Promise<OpenFileResult> => {
     const seq = ++openSeqRef.current;
     if (saveTimerRef.current) {
       clearTimeout(saveTimerRef.current);
       saveTimerRef.current = null;
     }
     setIsOpening(true);
+    setOpeningPath(path);
     try {
       const text = await readFile(path);
       if (seq !== openSeqRef.current) return { opened: false };
@@ -28,11 +35,15 @@ export function useActiveFile() {
       setSaveState('clean');
       await storeSet('lastOpenedFile', path);
       return { opened: true, content: text };
-    } catch {
+    } catch (error) {
       if (seq !== openSeqRef.current) return { opened: false };
-      return { opened: false };
+      const message = error instanceof Error ? error.message : 'Open file failed.';
+      return { opened: false, error: message || 'Open file failed.' };
     } finally {
-      if (seq === openSeqRef.current) setIsOpening(false);
+      if (seq === openSeqRef.current) {
+        setIsOpening(false);
+        setOpeningPath(null);
+      }
     }
   }, []);
 
@@ -80,6 +91,7 @@ export function useActiveFile() {
     content,
     saveState,
     isOpening,
+    openingPath,
     isDirty: saveState === 'dirty',
     isSelfWritingRef,
     openFile,

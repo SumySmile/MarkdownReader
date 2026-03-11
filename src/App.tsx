@@ -176,11 +176,34 @@ function App() {
   const [activeFileKind, setActiveFileKind] = useState<FileKind | null>(null);
   const [activeFileEditable, setActiveFileEditable] = useState<boolean>(true);
   const [readonlyReason, setReadonlyReason] = useState<string | null>(null);
+  const [openErrorMessage, setOpenErrorMessage] = useState<string | null>(null);
   const sourceScrollByFileRef = useRef<Map<string, number>>(new Map());
   const previewScrollByFileRef = useRef<Map<string, number>>(new Map());
+  const openErrorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const activeFilePathRef = useRef<string | null>(null);
   const activeContentRef = useRef('');
-  const { filePath, content, saveState, isOpening, isSelfWritingRef, openFile, handleChange, saveNow } = useActiveFile();
+  const { filePath, content, saveState, isOpening, openingPath, isSelfWritingRef, openFile, handleChange, saveNow } = useActiveFile();
+
+  const showOpenError = useCallback((message: string) => {
+    if (openErrorTimerRef.current) {
+      clearTimeout(openErrorTimerRef.current);
+      openErrorTimerRef.current = null;
+    }
+    setOpenErrorMessage(message);
+    openErrorTimerRef.current = setTimeout(() => {
+      setOpenErrorMessage(null);
+      openErrorTimerRef.current = null;
+    }, 4000);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (openErrorTimerRef.current) {
+        clearTimeout(openErrorTimerRef.current);
+        openErrorTimerRef.current = null;
+      }
+    };
+  }, []);
 
   useEffect(() => {
     activeFilePathRef.current = filePath;
@@ -195,7 +218,10 @@ function App() {
     if (!isOpenablePath(normalized)) return;
 
     const result = await openFile(normalized);
-    if (!result.opened) return;
+    if (!result.opened) {
+      if (result.error) showOpenError(`Open failed: ${result.error}`);
+      return;
+    }
     const kind = getFileKind(normalized);
     setActiveFileKind(kind);
     const reason = getReadonlyReason(normalized, result.content ?? '');
@@ -219,7 +245,7 @@ function App() {
         return next;
       });
     }
-  }, [openFile]);
+  }, [openFile, showOpenError]);
 
   const openFromLaunchArgs = useCallback(async (args: string[]): Promise<boolean> => {
     const launchPath = getOpenableLaunchPath(args);
@@ -757,8 +783,11 @@ function App() {
       activeFileKind={activeFileKind}
       activeFileEditable={activeFileEditable}
       readonlyReason={readonlyReason}
+      openErrorMessage={openErrorMessage}
       content={content}
       saveState={saveState}
+      isOpening={isOpening}
+      openingFile={openingPath}
       mode={mode}
       sourceSplitEnabled={sourceSplitEnabled}
       markdownToolsCollapsed={markdownToolsCollapsed}
