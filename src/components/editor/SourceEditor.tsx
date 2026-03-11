@@ -1,8 +1,7 @@
 import { useRef, useMemo, useEffect, useState, type CSSProperties } from 'react';
 import { useCodeMirror } from './useCodeMirror';
 import { markdown, markdownLanguage } from '@codemirror/lang-markdown';
-import { languages } from '@codemirror/language-data';
-import { LanguageDescription, HighlightStyle, syntaxHighlighting, foldCode, unfoldAll } from '@codemirror/language';
+import { HighlightStyle, syntaxHighlighting, foldCode, unfoldAll } from '@codemirror/language';
 import { EditorView } from '@codemirror/view';
 import { defaultKeymap, history, historyKeymap } from '@codemirror/commands';
 import { keymap, lineNumbers, drawSelection } from '@codemirror/view';
@@ -179,6 +178,54 @@ function getLanguageFilename(path: string | null): string | null {
   return slash >= 0 ? normalized.slice(slash + 1) : normalized;
 }
 
+function getFileExtension(fileName: string): string {
+  const idx = fileName.lastIndexOf('.');
+  if (idx <= 0 || idx === fileName.length - 1) return '';
+  return fileName.slice(idx).toLowerCase();
+}
+
+async function loadLanguageExtension(fileName: string): Promise<Extension> {
+  const ext = getFileExtension(fileName);
+  if (!ext) return [];
+
+  try {
+    if (ext === '.js' || ext === '.jsx' || ext === '.mjs' || ext === '.cjs' || ext === '.ts' || ext === '.tsx') {
+      const { javascript } = await import('@codemirror/lang-javascript');
+      return javascript({
+        typescript: ext === '.ts' || ext === '.tsx',
+        jsx: ext === '.jsx' || ext === '.tsx',
+      });
+    }
+    if (ext === '.json' || ext === '.jsonc') {
+      const { json } = await import('@codemirror/lang-json');
+      return json();
+    }
+    if (ext === '.py') {
+      const { python } = await import('@codemirror/lang-python');
+      return python();
+    }
+    if (ext === '.yaml' || ext === '.yml') {
+      const { yaml } = await import('@codemirror/lang-yaml');
+      return yaml();
+    }
+    if (ext === '.sql') {
+      const { sql } = await import('@codemirror/lang-sql');
+      return sql();
+    }
+    if (ext === '.html' || ext === '.htm' || ext === '.xml') {
+      const { html } = await import('@codemirror/lang-html');
+      return html();
+    }
+    if (ext === '.css') {
+      const { css } = await import('@codemirror/lang-css');
+      return css();
+    }
+  } catch {
+    return [];
+  }
+  return [];
+}
+
 export function SourceEditor({
   content,
   onChange,
@@ -259,17 +306,8 @@ export function SourceEditor({
         setLanguageExtension([]);
         return;
       }
-      const description = LanguageDescription.matchFilename(languages, fileName);
-      if (!description) {
-        setLanguageExtension([]);
-        return;
-      }
-      try {
-        const support = await description.load();
-        if (!cancelled) setLanguageExtension(support.extension);
-      } catch {
-        if (!cancelled) setLanguageExtension([]);
-      }
+      const extension = await loadLanguageExtension(fileName);
+      if (!cancelled) setLanguageExtension(extension);
     }
 
     resolveLanguage();
@@ -311,7 +349,7 @@ export function SourceEditor({
           },
         })
       : [],
-    isMarkdownFile ? markdown({ base: markdownLanguage, codeLanguages: languages }) : languageExtension,
+    isMarkdownFile ? markdown({ base: markdownLanguage }) : languageExtension,
     EditorState.readOnly.of(readOnly),
     EditorView.editable.of(!readOnly),
     baseTheme,
