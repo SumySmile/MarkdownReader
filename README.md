@@ -73,6 +73,7 @@ A desktop Markdown editor based on Tauri + React + TypeScript.
 - Source editor syntax highlighting:
   - Source highlighting now uses file-visual categories (`markdown/code/config/script/data/docs/plain`) for clearer differences between file types.
   - Language is selected by file extension (e.g. `.py`, `.ts`, `.tsx`, `.js`, `.json`, `.yaml`, `.sh`, `.ps1`).
+  - Source language packages are loaded lazily by extension to reduce initial bundle and startup overhead.
   - Includes default fallback highlighting so non-markdown code files keep visible syntax colors.
   - Unknown file types fall back to plain text highlighting.
   - Markdown formatting symbols (for example `##`, `**`, `[]()`, `>`, `---`) are tuned across all themes.
@@ -89,6 +90,7 @@ A desktop Markdown editor based on Tauri + React + TypeScript.
     - `Mint -> everforest-light`
     - `Mist(gray) -> one-light`
   - Preview mode for supported text files uses extension-based syntax highlighting when possible.
+  - Preview highlighter is loaded on demand (dynamic import), so first paint stays lighter and highlight assets are fetched only when needed.
   - Preview code blocks use a flatter single-shell style (no nested frame), with tighter spacing and improved font sizing for better parity with Source readability.
   - Inline code and in-cell code labels are rendered without pill-style boxed backgrounds to keep document flow cleaner.
   - Falls back to plain text rendering if highlighting is unavailable.
